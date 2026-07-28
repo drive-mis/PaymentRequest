@@ -10,9 +10,12 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// The database is a local SQLite file, not a secret, so the path lives here
+// rather than in a gitignored .env — a fresh clone works with no env setup.
+// Path is relative to this schema file, i.e. prisma/dev.db.
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url      = "file:./dev.db"
 }
 
 model CarLoanRequest {

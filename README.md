@@ -17,10 +17,21 @@ npm install
 npm run dev
 ```
 
-That's it. `npm run dev` automatically syncs the database schema and, if the database is empty
-(a fresh clone, or the first run), seeds the 20 sample requests before starting the server — see
-the `predev` script in `package.json` / `scripts/ensure-seed.ts`. It never touches a database
-that already has data. Then open [http://localhost:3000](http://localhost:3000).
+That's it — no `.env` file or database setup needed. Then open
+[http://localhost:3000](http://localhost:3000).
+
+Both `npm run dev` and `npm run start` (production mode) first run `npm run setup:db`, which
+syncs the database schema and — only if the table is empty — seeds the 20 sample requests. It
+never touches a database that already has records. The SQLite file lives at `prisma/dev.db` and
+is gitignored, so a fresh clone recreates it automatically on first run.
+
+To run a production build instead:
+
+```bash
+npm install
+npm run build
+npm run start
+```
 
 If you ever want to wipe everything and start over with fresh sample data, run `npm run db:reset`.
 

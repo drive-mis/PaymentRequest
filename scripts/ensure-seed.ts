@@ -1,11 +1,14 @@
 import { PrismaClient } from "@prisma/client";
 import { execSync } from "child_process";
 
-// Runs before every `next dev` (see package.json "predev"). Schema sync
-// (`prisma db push`) already ran by the time this executes; this only seeds
-// sample data on a totally empty database (first run / fresh clone) so the
-// app is never blank or broken out of the box. It never touches an existing,
-// non-empty database.
+// Runs before `next dev` and `next start` (see the predev/prestart scripts in
+// package.json). The database file is gitignored, so on a fresh clone it does
+// not exist at all — without this the app would boot and then throw
+// "table main.CarLoanRequest does not exist" on the first query.
+//
+// `prisma db push` (run just before this) creates/syncs the schema; this then
+// seeds sample data only when the table is empty. It never touches a database
+// that already has records.
 const prisma = new PrismaClient();
 
 async function main() {
