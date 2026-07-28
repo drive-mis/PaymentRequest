@@ -1,0 +1,1 @@
+Seed placeholder — represents a scanned cheque photo for demo purposes.

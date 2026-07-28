@@ -1,0 +1,124 @@
+// Drive Finance — Contract-to-Cheque Payment Request & Treasury Execution System
+// Single-table data model. All lifecycle state, financials, cheque handover and
+// audit history live on ONE row of CarLoanRequest. Field names mirror the exact
+// names already in use across the business (see BUILD PROMPT Section 4).
+// Fields containing spaces (or the business's existing typos, e.g. "Benefciary
+// Documents") are mapped via @map(...) to a Prisma-safe identifier — the exact
+// business name is still the DB column name and the JSON API key (see src/lib/serialize.ts).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model CarLoanRequest {
+  // 4.1 Application / Identification
+  APP_ID           String    @id
+  APP_DATETIME     DateTime  @default(now())
+  APP_CUSTOMER_TYPE String
+  APP_PROGRAM_ID   Float
+  PROGRAM_NAME     String
+  Branch           String
+  STATUS           String    @default("Draft")
+  CREATION_DATE    String?
+
+  // 4.2 Customer Information — read-only, sourced from system
+  CUSTOMER_NAME        String
+  CUSTOMER_ID_NUMBER   String
+  CUSTOMER_GENDER      String?
+  CUSTOMER_NATIONALITY String?
+  CUSTOMER_TITLE       String?
+  CUSTOMER_CLASS       String?
+  ORGANIZATION_NAME    String?
+  ORG_TYPE             String?
+  ORG_REG_NUMBER       String?
+
+  // 4.3 Car / Asset Information — read-only, sourced from system
+  BRAND_NAME      String
+  MODEL           String
+  CarType         String   @map("Car Type")
+  CHASIS_NUMBER   String
+  MOTOR_NUMBER    String
+  COLOR           String
+  ENGINE_SIZE     String
+  YEAR_OF_PRODUCT Float
+
+  // 4.4 Contract Stage (Sales)
+  ContractType           String?   @map("Contract Type")
+  ContractReadyStatus    String    @default("Not Ready") @map("Contract Ready Status")
+  ContractSigningDate    DateTime? @map("Contract Signing Date")
+  DRV_SALES_MAN          String?
+  DRV_SALES_MANAGER      String?
+  InsuranceType          String?   @map("Insurance Type")
+  ReceivalMethod         String?   @map("Receival Method")
+  ExternalContract       String?   @map("External Contract")
+  CarDocuments           String?   @map("Car Documents")
+  BenefciaryDocuments    String?   @map("Benefciary Documents")
+  AllCustomerCarDocuments String?  @map("All Customer Car Documents")
+  Inspection             String?
+  Pricing                String?
+
+  // 4.5 Operations Review
+  OperationNotes       String?   @map("Operation Notes")
+  DEVIATION            String?
+  FEEDBACK             String?
+  OperationsReviewedBy String?
+  OperationsReviewDate DateTime?
+
+  // 4.6 Financial / Loan Details
+  PRICE                  Float?
+  DOWN_PAYMENT            Float?
+  LOAN_AMOUNT             Float?
+  LoanAmountCalculated    Float?  @map("Loan Amount Calculated")
+  INTEREST_RATE           Float?
+  TENOR_MONTH             Float?
+  ADMIN_FEES              Float?
+  BANK_NAME               String?
+  BANK_BRANCH             String?
+
+  // 4.7 Payment Request (Operations -> Finance)
+  PaymentRequestStatus String  @default("Draft") @map("Payment Request Status")
+  PaymentRequestFile   String? @map("Payment Request File")
+  DECISION             String?
+  REASON               String?
+
+  // 4.8 Finance Execution (cheque issuance)
+  FinanceStatus     String    @default("Pending") @map("Finance Status")
+  FinanceNotes      String?   @map("Finance Notes")
+  ChequeNumber      String?   @map("Cheque Number")
+  ChequeLocation    String?   @map("Cheque Location")
+  Cheque            String?
+  CustomerCheque    String?   @map("Customer Cheque")
+  PaymentReceipt    String?   @map("Payment Receipt")
+  Receipt           String?
+  FinanceReviewedBy String?
+  FinanceReviewDate DateTime?
+
+  // 4.9 Cheque Handover & Delivery
+  ChequeDeliveryStatus           String    @default("Pending")
+  ChequeHandoverToOperationsDate DateTime?
+  ChequeHandoverToOperationsBy   String?
+  ChequeDeliveredToCustomerDate  DateTime?
+  ChequeDeliveredToCustomerBy    String?
+  CustomerAcknowledgementFile    String?
+
+  // 4.10 Duplicate Detection
+  DuplicateCheckKey   String?
+  IsPotentialDuplicate Boolean @default(false)
+  DuplicateOfAppID    String?
+
+  // 4.11 Audit Trail (embedded JSON — the system's "history table")
+  StatusHistoryLog String   @default("[]")
+  AuditTrail       String   @default("[]")
+  CreatedBy        String
+  CreatedOn        DateTime @default(now())
+  ModifiedBy       String?
+  ModifiedOn       DateTime @updatedAt
+  IsLocked         Boolean  @default(false)
+
+  @@map("CarLoanRequest")
+}

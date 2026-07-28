@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --df-indigo: #5655e5;
+  --df-purple: #4b2e9e;
+  --df-teal: #2fa9c9;
+  --df-black: #0b0b0f;
+  --df-white: #ffffff;
+  --df-mist: #dce3f0;
+  --df-text: #1a1a1f;
+}
+
+html,
+body {
+  background: #f5f6fb;
+  color: var(--df-text);
+}
+
+* {
+  border-color: #e4e8f2;
+}
+
+::selection {
+  background: var(--df-indigo);
+  color: white;
+}
+
+.card {
+  @apply bg-white rounded-df border border-slate-200 shadow-sm;
+}
+
+.badge {
+  @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold;
+}
+
+.badge-green {
+  @apply bg-emerald-50 text-status-green ring-1 ring-inset ring-emerald-200;
+}
+.badge-amber {
+  @apply bg-amber-50 text-status-amber ring-1 ring-inset ring-amber-200;
+}
+.badge-red {
+  @apply bg-red-50 text-status-red ring-1 ring-inset ring-red-200;
+}
+.badge-slate {
+  @apply bg-slate-100 text-status-slate ring-1 ring-inset ring-slate-300;
+}
+.badge-blue {
+  @apply bg-blue-50 text-status-blue ring-1 ring-inset ring-blue-200;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed;
+}
+.btn-primary {
+  @apply btn bg-df-indigo text-white hover:bg-df-purple;
+}
+.btn-secondary {
+  @apply btn bg-white text-df-text border border-slate-300 hover:bg-slate-50;
+}
+.btn-danger {
+  @apply btn bg-status-red text-white hover:opacity-90;
+}
+.btn-ghost {
+  @apply btn text-df-indigo hover:bg-df-indigo/10;
+}
+
+.field-label {
+  @apply block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1;
+}
+
+.input {
+  @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-df-text focus:outline-none focus:ring-2 focus:ring-df-indigo/40 focus:border-df-indigo disabled:bg-slate-100 disabled:text-slate-500;
+}
+
+.readonly-panel {
+  @apply rounded-df border border-dashed border-slate-300 bg-slate-50 p-4;
+}
+
+.table-zebra tbody tr:nth-child(even) {
+  background: var(--df-mist);
+  background: #f4f6fc;
+}
+
+.kpi-ellipse {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(0px);
+  opacity: 0.16;
+}

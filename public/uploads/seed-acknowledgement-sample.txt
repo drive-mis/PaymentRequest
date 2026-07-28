@@ -1,0 +1,1 @@
+Seed placeholder — represents a signed customer acknowledgement for demo purposes.
