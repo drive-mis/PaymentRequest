@@ -20,7 +20,7 @@ export default async function ReportingPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiTile label="Total Requests" value={data.total} accent="indigo" />
         <KpiTile label="Completion Rate" value={`${Math.round(data.completionRate * 100)}%`} accent="teal" />
-        <KpiTile label="Rejected (Ops + Finance)" value={data.rejects.operations + data.rejects.finance} accent="black" />
+        <KpiTile label="Rejected (Ops + Finance)" value={data.rejects.operations + data.rejects.finance} accent="teal" />
         <KpiTile label="Duplicates Flagged & Acknowledged" value={data.duplicates.flaggedAndAcknowledged} accent="purple" />
       </div>
 

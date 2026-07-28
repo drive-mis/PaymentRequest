@@ -14,13 +14,15 @@ request, finance approval, cheque issuance, and delivery to the customer.
 
 ```bash
 npm install
-npm run db:push    # creates prisma/dev.db from schema.prisma
-npm run db:seed     # loads 20 sample requests spanning every stage
 npm run dev
 ```
 
-Then open [http://localhost:3000](http://localhost:3000). `npm run db:reset` wipes and reseeds
-in one step if you want to start over.
+That's it. `npm run dev` automatically syncs the database schema and, if the database is empty
+(a fresh clone, or the first run), seeds the 20 sample requests before starting the server — see
+the `predev` script in `package.json` / `scripts/ensure-seed.ts`. It never touches a database
+that already has data. Then open [http://localhost:3000](http://localhost:3000).
+
+If you ever want to wipe everything and start over with fresh sample data, run `npm run db:reset`.
 
 ## Signing in — the role-switcher
 

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "predev": "prisma db push && tsx scripts/ensure-seed.ts",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

@@ -69,7 +69,7 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiTile label="Total Requests" value={total} accent="purple" />
           <KpiTile label="Completion Rate" value={`${completionRate}%`} sub={`${delivered} delivered`} accent="teal" />
-          <KpiTile label="Currently Returned" value={returnedCount} sub="awaiting fix & resubmit" accent="black" />
+          <KpiTile label="Currently Returned" value={returnedCount} sub="awaiting fix & resubmit" accent="purple" />
           <KpiTile label="Delivered to Customer" value={delivered} accent="indigo" />
         </div>
       </div>

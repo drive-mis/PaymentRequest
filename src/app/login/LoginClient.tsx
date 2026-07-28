@@ -38,53 +38,59 @@ export function LoginClient() {
   const roles: Array<"Sales" | "Operations" | "Finance"> = ["Sales", "Operations", "Finance"];
 
   return (
-    <div className="min-h-screen bg-df-black flex flex-col items-center justify-center px-6 py-12 relative overflow-hidden">
-      <div className="kpi-ellipse bg-df-indigo w-[520px] h-[520px] -top-40 -left-40" />
-      <div className="kpi-ellipse bg-df-teal w-[420px] h-[420px] -bottom-32 -right-24" />
-
-      <div className="relative z-10 mb-10">
-        <Logo dark className="scale-125" />
-      </div>
-
-      <div className="relative z-10 text-center mb-10">
-        <h1 className="text-3xl font-bold text-white tracking-tight">Treasury Execution System</h1>
-        <p className="text-slate-400 mt-2 text-sm">Sign in by selecting who you are — no password needed for this internal tool.</p>
-      </div>
-
-      {error && (
-        <div className="relative z-10 mb-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm px-4 py-2">
-          {error}
+    <div className="min-h-screen bg-[#f5f6fb] flex flex-col">
+      <header className="bg-white border-b border-slate-200">
+        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+          <Logo />
+          <span className="text-xs text-slate-400">Internal Treasury Tool</span>
         </div>
-      )}
+        <div className="h-[3px] bg-df-gradient" />
+      </header>
 
-      <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-5 max-w-4xl w-full">
-        {roles.map((role) => (
-          <div key={role} className="card !bg-white/[0.04] !border-white/10 p-5">
-            <div className="text-xs font-semibold tracking-wide uppercase text-df-teal mb-1">{role}</div>
-            <p className="text-xs text-slate-400 mb-4 leading-relaxed">{ROLE_BLURB[role]}</p>
-            <div className="space-y-2">
-              {PERSONAS.filter((p) => p.role === role).map((persona) => (
-                <button
-                  key={persona.name}
-                  onClick={() => pick(persona)}
-                  disabled={loading !== null}
-                  className="w-full flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-left hover:bg-df-indigo/20 hover:border-df-indigo/50 transition disabled:opacity-50"
-                >
-                  <span>
-                    <span className="block text-sm font-semibold text-white">{persona.name}</span>
-                    <span className="block text-xs text-slate-400">{persona.title}</span>
-                  </span>
-                  {loading === persona.name ? (
-                    <span className="text-xs text-df-teal">Signing in…</span>
-                  ) : (
-                    <span className="text-df-teal text-lg">→</span>
-                  )}
-                </button>
-              ))}
-            </div>
+      <main className="flex-1 flex flex-col items-center justify-center px-6 py-14 relative overflow-hidden">
+        <div className="kpi-ellipse bg-df-indigo w-[460px] h-[460px] -top-32 -left-32 opacity-[0.08]" />
+        <div className="kpi-ellipse bg-df-teal w-[380px] h-[380px] -bottom-28 -right-20 opacity-[0.08]" />
+
+        <div className="relative z-10 text-center mb-10">
+          <h1 className="text-3xl font-bold text-df-text tracking-tight">Treasury Execution System</h1>
+          <p className="text-slate-500 mt-2 text-sm">Sign in by selecting who you are — no password needed for this internal tool.</p>
+        </div>
+
+        {error && (
+          <div className="relative z-10 mb-4 rounded-lg bg-red-50 border border-red-200 text-status-red text-sm px-4 py-2">
+            {error}
           </div>
-        ))}
-      </div>
+        )}
+
+        <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-5 max-w-4xl w-full">
+          {roles.map((role) => (
+            <div key={role} className="card p-5">
+              <div className="text-xs font-semibold tracking-wide uppercase text-df-indigo mb-1">{role}</div>
+              <p className="text-xs text-slate-500 mb-4 leading-relaxed">{ROLE_BLURB[role]}</p>
+              <div className="space-y-2">
+                {PERSONAS.filter((p) => p.role === role).map((persona) => (
+                  <button
+                    key={persona.name}
+                    onClick={() => pick(persona)}
+                    disabled={loading !== null}
+                    className="w-full flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-left hover:bg-df-indigo/5 hover:border-df-indigo/40 transition disabled:opacity-50"
+                  >
+                    <span>
+                      <span className="block text-sm font-semibold text-df-text">{persona.name}</span>
+                      <span className="block text-xs text-slate-500">{persona.title}</span>
+                    </span>
+                    {loading === persona.name ? (
+                      <span className="text-xs text-df-indigo">Signing in…</span>
+                    ) : (
+                      <span className="text-df-indigo text-lg">→</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
     </div>
   );
 }
