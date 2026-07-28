@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { CustomerRecord, VehicleRecord } from "@/lib/mockSource";
+import { findCustomers, findVehicles, type CustomerRecord, type VehicleRecord } from "@/lib/mockSource";
 import { ReadOnlyPanel } from "@/components/ReadOnlyPanel";
 import { FileField } from "@/components/FileField";
 import {
@@ -15,93 +15,85 @@ import {
   SALES_MANAGERS,
 } from "@/lib/choices";
 import type { Role } from "@/lib/types";
+import { DuplicateWarning, useStore } from "@/lib/store";
 
 function LookupPicker<T>({
   label,
   placeholder,
-  endpoint,
+  search,
   renderOption,
   onPick,
+  onClear,
   selectedLabel,
 }: {
   label: string;
   placeholder: string;
-  endpoint: string;
+  search: (q: string) => T[];
   renderOption: (item: T) => { title: string; subtitle: string };
   onPick: (item: T) => void;
+  onClear: () => void;
   selectedLabel: string | null;
 }) {
   const [q, setQ] = useState("");
-  const [results, setResults] = useState<T[]>([]);
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const results = q.trim() ? search(q) : [];
 
-  async function search(value: string) {
-    setQ(value);
-    if (!value.trim()) {
-      setResults([]);
-      setOpen(false);
-      return;
-    }
-    setLoading(true);
-    const res = await fetch(`${endpoint}?q=${encodeURIComponent(value)}`);
-    const data = await res.json();
-    setResults(data);
-    setOpen(true);
-    setLoading(false);
-  }
-
-  return (
-    <div className="relative">
-      <label className="field-label">{label}</label>
-      {selectedLabel ? (
+  if (selectedLabel) {
+    return (
+      <div>
+        <label className="field-label">{label}</label>
         <div className="flex items-center justify-between rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm">
           <span className="font-medium text-emerald-900">{selectedLabel}</span>
           <button
             type="button"
             className="text-xs text-emerald-700 underline"
             onClick={() => {
-              onPick(null as unknown as T);
+              onClear();
               setQ("");
+              setOpen(false);
             }}
           >
             Change
           </button>
         </div>
-      ) : (
-        <>
-          <input
-            className="input"
-            placeholder={placeholder}
-            value={q}
-            onChange={(e) => search(e.target.value)}
-            onFocus={() => q && setOpen(true)}
-          />
-          {open && (
-            <div className="absolute z-20 mt-1 w-full card max-h-64 overflow-auto p-1">
-              {loading && <div className="px-3 py-2 text-sm text-slate-400">Searching…</div>}
-              {!loading && results.length === 0 && <div className="px-3 py-2 text-sm text-slate-400">No matches</div>}
-              {!loading &&
-                results.map((item, i) => {
-                  const { title, subtitle } = renderOption(item);
-                  return (
-                    <button
-                      type="button"
-                      key={i}
-                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-df-indigo/5 text-sm"
-                      onClick={() => {
-                        onPick(item);
-                        setOpen(false);
-                      }}
-                    >
-                      <div className="font-medium text-df-text">{title}</div>
-                      <div className="text-xs text-slate-400">{subtitle}</div>
-                    </button>
-                  );
-                })}
-            </div>
-          )}
-        </>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <label className="field-label">{label}</label>
+      <input
+        className="input"
+        placeholder={placeholder}
+        value={q}
+        onChange={(e) => {
+          setQ(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => q && setOpen(true)}
+      />
+      {open && q.trim() && (
+        <div className="absolute z-20 mt-1 w-full card max-h-64 overflow-auto p-1">
+          {results.length === 0 && <div className="px-3 py-2 text-sm text-slate-400">No matches</div>}
+          {results.map((item, i) => {
+            const { title, subtitle } = renderOption(item);
+            return (
+              <button
+                type="button"
+                key={i}
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-df-indigo/5 text-sm"
+                onClick={() => {
+                  onPick(item);
+                  setOpen(false);
+                }}
+              >
+                <div className="font-medium text-df-text">{title}</div>
+                <div className="text-xs text-slate-400">{subtitle}</div>
+              </button>
+            );
+          })}
+        </div>
       )}
     </div>
   );
@@ -109,6 +101,8 @@ function LookupPicker<T>({
 
 export function NewContractForm({ role }: { role: Role }) {
   const router = useRouter();
+  const { createRequest, performAction } = useStore();
+
   const [customer, setCustomer] = useState<CustomerRecord | null>(null);
   const [vehicle, setVehicle] = useState<VehicleRecord | null>(null);
   const [programId, setProgramId] = useState(PROGRAMS[0].APP_PROGRAM_ID);
@@ -131,17 +125,15 @@ export function NewContractForm({ role }: { role: Role }) {
   });
 
   const [error, setError] = useState<string | null>(null);
-  const [duplicateWarning, setDuplicateWarning] = useState<{ message: string; matches: string[] } | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [duplicate, setDuplicate] = useState<{ message: string; matches: string[] } | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  function buildPayload(acknowledgeSimilar = false) {
+  function buildFields() {
     return {
-      CUSTOMER_ID_NUMBER: customer?.CUSTOMER_ID_NUMBER,
-      CHASIS_NUMBER: vehicle?.CHASIS_NUMBER,
       APP_PROGRAM_ID: programId,
       PROGRAM_NAME: PROGRAMS.find((p) => p.APP_PROGRAM_ID === programId)?.PROGRAM_NAME,
       Branch: branch,
-      CREATION_DATE: creationNote,
+      CREATION_DATE: creationNote || null,
       "Contract Type": contractType,
       "Contract Ready Status": contractReadyStatus,
       "Contract Signing Date": signingDate ? new Date(signingDate).toISOString() : null,
@@ -149,63 +141,40 @@ export function NewContractForm({ role }: { role: Role }) {
       DRV_SALES_MANAGER: salesManager,
       "Insurance Type": insuranceType,
       "Receival Method": receivalMethod,
-      "External Contract": files["External Contract"],
-      "Car Documents": files["Car Documents"],
-      "Benefciary Documents": files["Benefciary Documents"],
-      "All Customer Car Documents": files["All Customer Car Documents"],
-      Inspection: files.Inspection,
-      Pricing: files.Pricing,
-      acknowledgeSimilar,
+      ...files,
     };
   }
 
-  async function submit(action: "draft" | "submit") {
+  function submit(mode: "draft" | "submit") {
     setError(null);
     if (!customer || !vehicle) {
       setError("Select both a customer and a vehicle before saving.");
       return;
     }
-    setSubmitting(true);
+    setBusy(true);
     try {
-      const res = await fetch("/api/requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildPayload(!!duplicateWarning)),
+      const created = createRequest({
+        CUSTOMER_ID_NUMBER: customer.CUSTOMER_ID_NUMBER,
+        CHASIS_NUMBER: vehicle.CHASIS_NUMBER,
+        fields: buildFields(),
+        acknowledgeSimilar: !!duplicate,
       });
-      const data = await res.json();
 
-      if (res.status === 409) {
-        setDuplicateWarning({
-          message: data.error,
-          matches: (data.duplicate?.similarMatches ?? []).map((m: { APP_ID: string }) => m.APP_ID),
+      if (mode === "submit") {
+        performAction(created.APP_ID, { action: "SUBMIT_FOR_OPERATIONS_REVIEW" });
+      }
+      router.push(`/requests/${created.APP_ID}`);
+    } catch (err) {
+      if (err instanceof DuplicateWarning) {
+        setDuplicate({
+          message: err.message,
+          matches: err.duplicate.similarMatches.map((m) => m.APP_ID),
         });
-        setSubmitting(false);
-        return;
+      } else {
+        setError(err instanceof Error ? err.message : "Something went wrong.");
       }
-      if (!res.ok) {
-        setError(data.error || "Something went wrong.");
-        setSubmitting(false);
-        return;
-      }
-
-      if (action === "submit") {
-        const submitRes = await fetch(`/api/requests/${data["APP_ID"]}/actions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "SUBMIT_FOR_OPERATIONS_REVIEW" }),
-        });
-        if (!submitRes.ok) {
-          const submitErr = await submitRes.json();
-          setError(submitErr.error || "Saved as draft, but could not submit for review.");
-          router.push(`/requests/${data["APP_ID"]}`);
-          return;
-        }
-      }
-
-      router.push(`/requests/${data["APP_ID"]}`);
-      router.refresh();
     } finally {
-      setSubmitting(false);
+      setBusy(false);
     }
   }
 
@@ -217,16 +186,18 @@ export function NewContractForm({ role }: { role: Role }) {
           <LookupPicker<CustomerRecord>
             label="Customer (search by name or ID)"
             placeholder="e.g. Ahmed Samir or 2900101..."
-            endpoint="/api/customers"
+            search={findCustomers}
             onPick={setCustomer}
+            onClear={() => setCustomer(null)}
             selectedLabel={customer ? `${customer.CUSTOMER_NAME} · ${customer.CUSTOMER_ID_NUMBER}` : null}
             renderOption={(c) => ({ title: c.CUSTOMER_NAME, subtitle: c.CUSTOMER_ID_NUMBER })}
           />
           <LookupPicker<VehicleRecord>
             label="Vehicle (search by chassis, brand, or model)"
             placeholder="e.g. Corolla or WBA3A5..."
-            endpoint="/api/vehicles"
+            search={findVehicles}
             onPick={setVehicle}
+            onClear={() => setVehicle(null)}
             selectedLabel={vehicle ? `${vehicle.BRAND_NAME} ${vehicle.MODEL} · ${vehicle.CHASIS_NUMBER}` : null}
             renderOption={(v) => ({ title: `${v.BRAND_NAME} ${v.MODEL}`, subtitle: v.CHASIS_NUMBER })}
           />
@@ -261,7 +232,7 @@ export function NewContractForm({ role }: { role: Role }) {
             fields={[
               { label: "Brand", value: vehicle.BRAND_NAME },
               { label: "Model", value: vehicle.MODEL },
-              { label: "Type", value: vehicle.CarType },
+              { label: "Type", value: vehicle["Car Type"] },
               { label: "Chassis No.", value: vehicle.CHASIS_NUMBER },
               { label: "Motor No.", value: vehicle.MOTOR_NUMBER },
               { label: "Color", value: vehicle.COLOR },
@@ -295,7 +266,12 @@ export function NewContractForm({ role }: { role: Role }) {
           </div>
           <div>
             <label className="field-label">Creation Note</label>
-            <input className="input" value={creationNote} onChange={(e) => setCreationNote(e.target.value)} placeholder="Optional free-text note" />
+            <input
+              className="input"
+              value={creationNote}
+              onChange={(e) => setCreationNote(e.target.value)}
+              placeholder="Optional free-text note"
+            />
           </div>
         </div>
       </div>
@@ -313,7 +289,11 @@ export function NewContractForm({ role }: { role: Role }) {
           </div>
           <div>
             <label className="field-label">Contract Ready Status</label>
-            <select className="input" value={contractReadyStatus} onChange={(e) => setContractReadyStatus(e.target.value)}>
+            <select
+              className="input"
+              value={contractReadyStatus}
+              onChange={(e) => setContractReadyStatus(e.target.value)}
+            >
               {CONTRACT_READY_STATUSES.map((t) => (
                 <option key={t}>{t}</option>
               ))}
@@ -355,16 +335,21 @@ export function NewContractForm({ role }: { role: Role }) {
 
         <div className="grid sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100">
           {Object.keys(files).map((key) => (
-            <FileField key={key} label={key} value={files[key]} onChange={(path) => setFiles((f) => ({ ...f, [key]: path }))} />
+            <FileField
+              key={key}
+              label={key}
+              value={files[key]}
+              onChange={(name) => setFiles((f) => ({ ...f, [key]: name }))}
+            />
           ))}
         </div>
       </div>
 
-      {duplicateWarning && (
+      {duplicate && (
         <div className="card p-4 border-status-blue bg-blue-50">
           <p className="text-sm font-semibold text-blue-900">Possible duplicate detected</p>
           <p className="text-sm text-blue-800 mt-1">
-            {duplicateWarning.message} Matching request(s): {duplicateWarning.matches.join(", ") || "n/a"}.
+            {duplicate.message} Matching request(s): {duplicate.matches.join(", ") || "n/a"}.
           </p>
           <p className="text-xs text-blue-700 mt-1">Press the button again to proceed and acknowledge this warning.</p>
         </div>
@@ -373,10 +358,10 @@ export function NewContractForm({ role }: { role: Role }) {
       {error && <p className="text-sm text-status-red">{error}</p>}
 
       <div className="flex items-center gap-3">
-        <button className="btn-secondary" disabled={submitting} onClick={() => submit("draft")}>
+        <button className="btn-secondary" disabled={busy} onClick={() => submit("draft")}>
           Save as Draft
         </button>
-        <button className="btn-primary" disabled={submitting} onClick={() => submit("submit")}>
+        <button className="btn-primary" disabled={busy} onClick={() => submit("submit")}>
           Save &amp; Submit for Operations Review
         </button>
       </div>

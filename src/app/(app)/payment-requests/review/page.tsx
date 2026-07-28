@@ -1,17 +1,17 @@
-import { getSession } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+"use client";
+
+import { useStore } from "@/lib/store";
 import { RequestsTable } from "@/components/RequestsTable";
+import { LoadingScreen } from "@/components/Guard";
 import { formatCurrency } from "@/lib/format";
 
-export default async function FinanceReviewQueuePage() {
-  const session = getSession();
-  if (!session) redirect("/login");
+export default function FinanceReviewQueuePage() {
+  const { hydrated, requests } = useStore();
+  if (!hydrated) return <LoadingScreen />;
 
-  const rows = await prisma.carLoanRequest.findMany({
-    where: { STATUS: { in: ["Payment Request Submitted", "Under Finance Review"] } },
-    orderBy: { APP_DATETIME: "asc" },
-  });
+  const rows = requests
+    .filter((r) => ["Payment Request Submitted", "Under Finance Review"].includes(r.STATUS))
+    .sort((a, b) => new Date(a.APP_DATETIME).getTime() - new Date(b.APP_DATETIME).getTime());
 
   return (
     <div className="space-y-6">
@@ -22,7 +22,7 @@ export default async function FinanceReviewQueuePage() {
       <RequestsTable
         rows={rows}
         emptyMessage="No payment requests waiting for Finance."
-        extraColumn={{ header: "Loan Amount", render: (r) => formatCurrency(r.LOAN_AMOUNT as number | null) }}
+        extraColumn={{ header: "Loan Amount", render: (r) => formatCurrency(r.LOAN_AMOUNT) }}
       />
     </div>
   );

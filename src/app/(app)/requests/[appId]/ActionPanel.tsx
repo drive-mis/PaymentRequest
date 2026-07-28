@@ -1,38 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { FileField } from "@/components/FileField";
 import { BANKS } from "@/lib/choices";
-import type { Role } from "@/lib/types";
-
-type Rec = Record<string, any>;
-
-async function patchFields(appId: string, fields: Rec) {
-  const res = await fetch(`/api/requests/${appId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(fields),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Update failed");
-  return data;
-}
-
-async function doAction(appId: string, action: string, extra: Rec = {}) {
-  const res = await fetch(`/api/requests/${appId}/actions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, ...extra }),
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    const err: any = new Error(data.error || "Action failed");
-    err.payload = data;
-    throw err;
-  }
-  return data;
-}
+import type { CarLoanRequest, LifecycleAction, Role } from "@/lib/types";
+import { DuplicateWarning, useStore } from "@/lib/store";
+import { roleForPersonaName } from "@/lib/personas";
 
 function ReasonBar({
   label,
@@ -58,11 +31,23 @@ function ReasonBar({
     );
   }
   return (
-    <div className="card p-3 space-y-2 border-slate-300">
-      <label className="field-label">Reason {requireReason && <span className="text-status-red">*</span>}</label>
-      <textarea className="input" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Explain why…" />
+    <div className="card p-3 space-y-2 border-slate-300 w-full">
+      <label className="field-label">
+        Reason {requireReason && <span className="text-status-red">*</span>}
+      </label>
+      <textarea
+        className="input"
+        rows={2}
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        placeholder="Explain why…"
+      />
       <div className="flex gap-2">
-        <button className={buttonClass} disabled={busy || (requireReason && !reason.trim())} onClick={() => onConfirm(reason)}>
+        <button
+          className={buttonClass}
+          disabled={busy || (requireReason && !reason.trim())}
+          onClick={() => onConfirm(reason)}
+        >
           Confirm {label}
         </button>
         <button className="btn-secondary" onClick={() => setOpen(false)} disabled={busy}>
@@ -73,7 +58,17 @@ function ReasonBar({
   );
 }
 
-function Num({ label, value, onChange, required }: { label: string; value: any; onChange: (v: number | null) => void; required?: boolean }) {
+function Num({
+  label,
+  value,
+  onChange,
+  required,
+}: {
+  label: string;
+  value: number | null;
+  onChange: (v: number | null) => void;
+  required?: boolean;
+}) {
   return (
     <div>
       <label className="field-label">
@@ -89,32 +84,36 @@ function Num({ label, value, onChange, required }: { label: string; value: any; 
   );
 }
 
-export function ActionPanel({ role, name, record }: { role: Role; name: string; record: Rec }) {
-  const router = useRouter();
+export function ActionPanel({
+  role,
+  name,
+  record,
+}: {
+  role: Role;
+  name: string;
+  record: CarLoanRequest;
+}) {
+  const { patchRequest, performAction } = useStore();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [duplicate, setDuplicate] = useState<{ message: string; matches: string[] } | null>(null);
+
   const appId = record.APP_ID;
   const status = record.STATUS;
 
-  // local editable field state, seeded from record
-  const [contract, setContract] = useState({
-    "Contract Type": record["Contract Type"] ?? "",
-    "Contract Ready Status": record["Contract Ready Status"] ?? "Not Ready",
-    DRV_SALES_MAN: record.DRV_SALES_MAN ?? "",
-  });
+  const [contract, setContract] = useState({ DRV_SALES_MAN: record.DRV_SALES_MAN ?? "" });
   const [opsNotes, setOpsNotes] = useState({
     "Operation Notes": record["Operation Notes"] ?? "",
     DEVIATION: record.DEVIATION ?? "",
     FEEDBACK: record.FEEDBACK ?? "",
   });
   const [financial, setFinancial] = useState({
-    PRICE: record.PRICE ?? null,
-    DOWN_PAYMENT: record.DOWN_PAYMENT ?? null,
-    LOAN_AMOUNT: record.LOAN_AMOUNT ?? null,
-    INTEREST_RATE: record.INTEREST_RATE ?? null,
-    TENOR_MONTH: record.TENOR_MONTH ?? null,
-    ADMIN_FEES: record.ADMIN_FEES ?? null,
+    PRICE: record.PRICE,
+    DOWN_PAYMENT: record.DOWN_PAYMENT,
+    LOAN_AMOUNT: record.LOAN_AMOUNT,
+    INTEREST_RATE: record.INTEREST_RATE,
+    TENOR_MONTH: record.TENOR_MONTH,
+    ADMIN_FEES: record.ADMIN_FEES,
     BANK_NAME: record.BANK_NAME ?? BANKS[0].BANK_NAME,
     BANK_BRANCH: record.BANK_BRANCH ?? BANKS[0].branches[0],
   });
@@ -122,58 +121,73 @@ export function ActionPanel({ role, name, record }: { role: Role; name: string; 
     "Finance Notes": record["Finance Notes"] ?? "",
     "Cheque Number": record["Cheque Number"] ?? "",
     "Cheque Location": record["Cheque Location"] ?? "",
-    Cheque: record.Cheque ?? null,
-    "Customer Cheque": record["Customer Cheque"] ?? null,
-    "Payment Receipt": record["Payment Receipt"] ?? null,
-    Receipt: record.Receipt ?? null,
+    Cheque: record.Cheque,
+    "Customer Cheque": record["Customer Cheque"],
+    "Payment Receipt": record["Payment Receipt"],
+    Receipt: record.Receipt,
   });
-  const [ackFile, setAckFile] = useState(record.CustomerAcknowledgementFile ?? null);
+  const [ackFile, setAckFile] = useState(record.CustomerAcknowledgementFile);
 
-  function refresh() {
-    router.refresh();
-  }
-
-  async function run(fn: () => Promise<any>, opts: { onDuplicate?: (d: any) => void } = {}) {
+  function run(fn: () => void) {
     setBusy(true);
     setError(null);
     try {
-      await fn();
+      fn();
       setDuplicate(null);
-      refresh();
-    } catch (err: any) {
-      if (err.payload?.duplicate && err.message?.includes("Acknowledge")) {
+    } catch (err) {
+      if (err instanceof DuplicateWarning) {
         setDuplicate({
           message: err.message,
-          matches: (err.payload.duplicate.similarMatches ?? []).map((m: any) => m.APP_ID),
+          matches: err.duplicate.similarMatches.map((m) => m.APP_ID),
         });
       } else {
-        setError(err.message);
+        setError(err instanceof Error ? err.message : "Action failed.");
       }
     } finally {
       setBusy(false);
     }
   }
 
+  function act(action: LifecycleAction, extra: { reason?: string; fields?: Record<string, unknown> } = {}) {
+    performAction(appId, { action, ...extra, acknowledgeSimilar: !!duplicate });
+  }
+
+  const createdByRole = roleForPersonaName(record.CreatedBy) ?? "Sales";
   const isCreator = record.CreatedBy === name;
+
   const canEditContract =
     (role === "Sales" || role === "Operations") &&
     (status === "Draft" || status === "Returned by Operations") &&
-    isCreator;
-
-  const canSubmitForOpsReview = (role === "Sales" || role === "Operations") && (status === "Draft" || status === "Returned by Operations") && isCreator;
+    isCreator &&
+    createdByRole === role;
 
   const canStartOpsReview = role === "Operations" && status === "Submitted for Operations Review";
   const canActOpsReview = role === "Operations" && status === "Under Operations Review";
   const canResubmitPaymentRequest = role === "Operations" && status === "Returned by Finance";
-
   const canStartFinanceReview = role === "Finance" && status === "Payment Request Submitted";
   const canActFinanceReview = role === "Finance" && status === "Under Finance Review";
-
   const canIssueCheque = role === "Finance" && status === "Approved by Finance";
   const canConfirmChequeReceived = role === "Operations" && status === "Cheque Issued";
   const canConfirmDelivered = role === "Operations" && status === "Cheque Delivered to Operations";
 
-  const canCancel = !["Rejected by Operations", "Rejected by Finance", "Delivered to Customer", "Cancelled"].includes(status);
+  const canCancel = ![
+    "Rejected by Operations",
+    "Rejected by Finance",
+    "Delivered to Customer",
+    "Cancelled",
+  ].includes(status);
+
+  const nothingToDo =
+    !canEditContract &&
+    !canStartOpsReview &&
+    !canActOpsReview &&
+    !canResubmitPaymentRequest &&
+    !canStartFinanceReview &&
+    !canActFinanceReview &&
+    !canIssueCheque &&
+    !canConfirmChequeReceived &&
+    !canConfirmDelivered &&
+    !canCancel;
 
   return (
     <div className="space-y-5">
@@ -188,43 +202,46 @@ export function ActionPanel({ role, name, record }: { role: Role; name: string; 
         </div>
       )}
 
+      {nothingToDo && (
+        <div className="card p-4 text-sm text-slate-500">
+          No actions available to {role} while this request is &ldquo;{status}&rdquo;. You can still view the full
+          record and its history.
+        </div>
+      )}
+
       {canEditContract && (
         <div className="card p-4 space-y-3">
           <h3 className="text-sm font-semibold">Edit &amp; Submit Contract</h3>
-          <div className="grid sm:grid-cols-3 gap-3">
-            <div>
-              <label className="field-label">Sales Agent</label>
-              <input className="input" value={contract.DRV_SALES_MAN} onChange={(e) => setContract((c) => ({ ...c, DRV_SALES_MAN: e.target.value }))} />
-            </div>
+          <div>
+            <label className="field-label">Sales Agent</label>
+            <input
+              className="input"
+              value={contract.DRV_SALES_MAN}
+              onChange={(e) => setContract({ DRV_SALES_MAN: e.target.value })}
+            />
           </div>
-          <div className="flex gap-2">
-            <button
-              className="btn-secondary"
-              disabled={busy}
-              onClick={() => run(() => patchFields(appId, contract))}
-            >
+          <div className="flex flex-wrap gap-2">
+            <button className="btn-secondary" disabled={busy} onClick={() => run(() => patchRequest(appId, contract))}>
               Save Changes
             </button>
-            {canSubmitForOpsReview && (
-              <button
-                className="btn-primary"
-                disabled={busy}
-                onClick={() =>
-                  run(async () => {
-                    await patchFields(appId, contract);
-                    await doAction(appId, "SUBMIT_FOR_OPERATIONS_REVIEW");
-                  })
-                }
-              >
-                {status === "Returned by Operations" ? "Fix & Resubmit" : "Submit for Operations Review"}
-              </button>
-            )}
+            <button
+              className="btn-primary"
+              disabled={busy}
+              onClick={() =>
+                run(() => {
+                  patchRequest(appId, contract);
+                  act("SUBMIT_FOR_OPERATIONS_REVIEW");
+                })
+              }
+            >
+              {status === "Returned by Operations" ? "Fix & Resubmit" : "Submit for Operations Review"}
+            </button>
           </div>
         </div>
       )}
 
       {canStartOpsReview && (
-        <button className="btn-primary" disabled={busy} onClick={() => run(() => doAction(appId, "START_OPERATIONS_REVIEW"))}>
+        <button className="btn-primary" disabled={busy} onClick={() => run(() => act("START_OPERATIONS_REVIEW"))}>
           Start Review
         </button>
       )}
@@ -232,24 +249,41 @@ export function ActionPanel({ role, name, record }: { role: Role; name: string; 
       {(canActOpsReview || canResubmitPaymentRequest) && (
         <div className="card p-4 space-y-4">
           <h3 className="text-sm font-semibold">Operations Review &amp; Payment Request</h3>
-          <div className="grid sm:grid-cols-3 gap-3">
-            <div className="sm:col-span-3">
+          <div className="grid gap-3">
+            <div>
               <label className="field-label">Operation Notes</label>
-              <textarea className="input" rows={2} value={opsNotes["Operation Notes"]} onChange={(e) => setOpsNotes((o) => ({ ...o, "Operation Notes": e.target.value }))} />
+              <textarea
+                className="input"
+                rows={2}
+                value={opsNotes["Operation Notes"]}
+                onChange={(e) => setOpsNotes((o) => ({ ...o, "Operation Notes": e.target.value }))}
+              />
             </div>
-            <div>
-              <label className="field-label">Deviation</label>
-              <input className="input" value={opsNotes.DEVIATION} onChange={(e) => setOpsNotes((o) => ({ ...o, DEVIATION: e.target.value }))} />
-            </div>
-            <div>
-              <label className="field-label">Feedback</label>
-              <input className="input" value={opsNotes.FEEDBACK} onChange={(e) => setOpsNotes((o) => ({ ...o, FEEDBACK: e.target.value }))} />
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="field-label">Deviation</label>
+                <input
+                  className="input"
+                  value={opsNotes.DEVIATION}
+                  onChange={(e) => setOpsNotes((o) => ({ ...o, DEVIATION: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="field-label">Feedback</label>
+                <input
+                  className="input"
+                  value={opsNotes.FEEDBACK}
+                  onChange={(e) => setOpsNotes((o) => ({ ...o, FEEDBACK: e.target.value }))}
+                />
+              </div>
             </div>
           </div>
 
           <div className="border-t border-slate-100 pt-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Financial / Loan Details</p>
-            <div className="grid sm:grid-cols-4 gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+              Financial / Loan Details
+            </p>
+            <div className="grid sm:grid-cols-2 gap-3">
               <Num label="Price" value={financial.PRICE} required onChange={(v) => setFinancial((f) => ({ ...f, PRICE: v }))} />
               <Num label="Down Payment" value={financial.DOWN_PAYMENT} required onChange={(v) => setFinancial((f) => ({ ...f, DOWN_PAYMENT: v }))} />
               <Num label="Loan Amount" value={financial.LOAN_AMOUNT} required onChange={(v) => setFinancial((f) => ({ ...f, LOAN_AMOUNT: v }))} />
@@ -277,7 +311,11 @@ export function ActionPanel({ role, name, record }: { role: Role; name: string; 
                 <label className="field-label">
                   Bank Branch <span className="text-status-red">*</span>
                 </label>
-                <select className="input" value={financial.BANK_BRANCH} onChange={(e) => setFinancial((f) => ({ ...f, BANK_BRANCH: e.target.value }))}>
+                <select
+                  className="input"
+                  value={financial.BANK_BRANCH}
+                  onChange={(e) => setFinancial((f) => ({ ...f, BANK_BRANCH: e.target.value }))}
+                >
                   {(BANKS.find((b) => b.BANK_NAME === financial.BANK_NAME)?.branches ?? []).map((br) => (
                     <option key={br}>{br}</option>
                   ))}
@@ -287,7 +325,11 @@ export function ActionPanel({ role, name, record }: { role: Role; name: string; 
           </div>
 
           <div className="flex flex-wrap gap-2 pt-2">
-            <button className="btn-secondary" disabled={busy} onClick={() => run(() => patchFields(appId, { ...opsNotes, ...financial }))}>
+            <button
+              className="btn-secondary"
+              disabled={busy}
+              onClick={() => run(() => patchRequest(appId, { ...opsNotes, ...financial }))}
+            >
               Save Draft
             </button>
             {canActOpsReview && (
@@ -297,30 +339,21 @@ export function ActionPanel({ role, name, record }: { role: Role; name: string; 
                   buttonClass="btn-danger"
                   requireReason
                   busy={busy}
-                  onConfirm={(reason) => run(() => doAction(appId, "RETURN_BY_OPERATIONS", { reason }))}
+                  onConfirm={(reason) => run(() => act("RETURN_BY_OPERATIONS", { reason }))}
                 />
                 <ReasonBar
                   label="Reject"
                   buttonClass="btn-danger"
                   requireReason={false}
                   busy={busy}
-                  onConfirm={(reason) => run(() => doAction(appId, "REJECT_BY_OPERATIONS", { reason }))}
+                  onConfirm={(reason) => run(() => act("REJECT_BY_OPERATIONS", { reason }))}
                 />
               </>
             )}
             <button
               className="btn-primary"
               disabled={busy}
-              onClick={() =>
-                run(
-                  () =>
-                    doAction(appId, "SUBMIT_PAYMENT_REQUEST", {
-                      fields: { ...opsNotes, ...financial },
-                      acknowledgeSimilar: !!duplicate,
-                    }),
-                  {}
-                )
-              }
+              onClick={() => run(() => act("SUBMIT_PAYMENT_REQUEST", { fields: { ...opsNotes, ...financial } }))}
             >
               {canResubmitPaymentRequest ? "Fix & Resubmit Payment Request" : "Submit Payment Request to Finance"}
             </button>
@@ -329,7 +362,7 @@ export function ActionPanel({ role, name, record }: { role: Role; name: string; 
       )}
 
       {canStartFinanceReview && (
-        <button className="btn-primary" disabled={busy} onClick={() => run(() => doAction(appId, "START_FINANCE_REVIEW"))}>
+        <button className="btn-primary" disabled={busy} onClick={() => run(() => act("START_FINANCE_REVIEW"))}>
           Start Review
         </button>
       )}
@@ -338,9 +371,21 @@ export function ActionPanel({ role, name, record }: { role: Role; name: string; 
         <div className="card p-4 space-y-3">
           <h3 className="text-sm font-semibold">Finance Decision</h3>
           <div className="flex flex-wrap gap-2">
-            <ReasonBar label="Return to Operations" buttonClass="btn-danger" requireReason busy={busy} onConfirm={(reason) => run(() => doAction(appId, "RETURN_BY_FINANCE", { reason }))} />
-            <ReasonBar label="Reject" buttonClass="btn-danger" requireReason={false} busy={busy} onConfirm={(reason) => run(() => doAction(appId, "REJECT_BY_FINANCE", { reason }))} />
-            <button className="btn-primary" disabled={busy} onClick={() => run(() => doAction(appId, "APPROVE_BY_FINANCE"))}>
+            <ReasonBar
+              label="Return to Operations"
+              buttonClass="btn-danger"
+              requireReason
+              busy={busy}
+              onConfirm={(reason) => run(() => act("RETURN_BY_FINANCE", { reason }))}
+            />
+            <ReasonBar
+              label="Reject"
+              buttonClass="btn-danger"
+              requireReason={false}
+              busy={busy}
+              onConfirm={(reason) => run(() => act("REJECT_BY_FINANCE", { reason }))}
+            />
+            <button className="btn-primary" disabled={busy} onClick={() => run(() => act("APPROVE_BY_FINANCE"))}>
               Approve
             </button>
           </div>
@@ -350,30 +395,44 @@ export function ActionPanel({ role, name, record }: { role: Role; name: string; 
       {canIssueCheque && (
         <div className="card p-4 space-y-3">
           <h3 className="text-sm font-semibold">Payment Execution — Issue Cheque</h3>
-          <div className="grid sm:grid-cols-3 gap-3">
+          <div className="grid gap-3">
             <div>
               <label className="field-label">
                 Cheque Number <span className="text-status-red">*</span>
               </label>
-              <input className="input" value={financeExec["Cheque Number"]} onChange={(e) => setFinanceExec((f) => ({ ...f, "Cheque Number": e.target.value }))} />
+              <input
+                className="input"
+                value={financeExec["Cheque Number"]}
+                onChange={(e) => setFinanceExec((f) => ({ ...f, "Cheque Number": e.target.value }))}
+              />
             </div>
             <div>
               <label className="field-label">Cheque Location</label>
-              <input className="input" value={financeExec["Cheque Location"]} onChange={(e) => setFinanceExec((f) => ({ ...f, "Cheque Location": e.target.value }))} />
+              <input
+                className="input"
+                value={financeExec["Cheque Location"]}
+                onChange={(e) => setFinanceExec((f) => ({ ...f, "Cheque Location": e.target.value }))}
+              />
             </div>
             <div>
               <label className="field-label">Finance Notes</label>
-              <input className="input" value={financeExec["Finance Notes"]} onChange={(e) => setFinanceExec((f) => ({ ...f, "Finance Notes": e.target.value }))} />
+              <input
+                className="input"
+                value={financeExec["Finance Notes"]}
+                onChange={(e) => setFinanceExec((f) => ({ ...f, "Finance Notes": e.target.value }))}
+              />
             </div>
           </div>
-          <div className="grid sm:grid-cols-4 gap-3">
+          <div className="grid sm:grid-cols-2 gap-3">
             <FileField label="Cheque Photo" required value={financeExec.Cheque} onChange={(p) => setFinanceExec((f) => ({ ...f, Cheque: p }))} />
             <FileField label="Customer Cheque Copy" value={financeExec["Customer Cheque"]} onChange={(p) => setFinanceExec((f) => ({ ...f, "Customer Cheque": p }))} />
             <FileField label="Payment Receipt" value={financeExec["Payment Receipt"]} onChange={(p) => setFinanceExec((f) => ({ ...f, "Payment Receipt": p }))} />
             <FileField label="Receipt" value={financeExec.Receipt} onChange={(p) => setFinanceExec((f) => ({ ...f, Receipt: p }))} />
           </div>
-          <p className="text-xs text-slate-500">Bank: {financial.BANK_NAME} — {financial.BANK_BRANCH} (from loan details)</p>
-          <button className="btn-primary" disabled={busy} onClick={() => run(() => doAction(appId, "ISSUE_CHEQUE", { fields: financeExec }))}>
+          <p className="text-xs text-slate-500">
+            Bank: {record.BANK_NAME || "—"} — {record.BANK_BRANCH || "—"} (from loan details)
+          </p>
+          <button className="btn-primary" disabled={busy} onClick={() => run(() => act("ISSUE_CHEQUE", { fields: financeExec }))}>
             Issue Cheque
           </button>
         </div>
@@ -382,8 +441,14 @@ export function ActionPanel({ role, name, record }: { role: Role; name: string; 
       {canConfirmChequeReceived && (
         <div className="card p-4 space-y-3">
           <h3 className="text-sm font-semibold">Cheque Handover</h3>
-          <p className="text-sm text-slate-500">Confirm that Finance has physically handed over the cheque to you (Operations).</p>
-          <button className="btn-primary" disabled={busy} onClick={() => run(() => doAction(appId, "CONFIRM_CHEQUE_RECEIVED_BY_OPERATIONS"))}>
+          <p className="text-sm text-slate-500">
+            Confirm that Finance has physically handed over the cheque to you (Operations).
+          </p>
+          <button
+            className="btn-primary"
+            disabled={busy}
+            onClick={() => run(() => act("CONFIRM_CHEQUE_RECEIVED_BY_OPERATIONS"))}
+          >
             Confirm Cheque Received
           </button>
         </div>
@@ -396,7 +461,9 @@ export function ActionPanel({ role, name, record }: { role: Role; name: string; 
           <button
             className="btn-primary"
             disabled={busy}
-            onClick={() => run(() => doAction(appId, "CONFIRM_DELIVERED_TO_CUSTOMER", { fields: { CustomerAcknowledgementFile: ackFile } }))}
+            onClick={() =>
+              run(() => act("CONFIRM_DELIVERED_TO_CUSTOMER", { fields: { CustomerAcknowledgementFile: ackFile } }))
+            }
           >
             Confirm Delivered to Customer
           </button>
@@ -405,7 +472,13 @@ export function ActionPanel({ role, name, record }: { role: Role; name: string; 
 
       {canCancel && (
         <div className="pt-2 border-t border-slate-100">
-          <ReasonBar label="Cancel Request" buttonClass="btn-danger" requireReason busy={busy} onConfirm={(reason) => run(() => doAction(appId, "CANCEL", { reason }))} />
+          <ReasonBar
+            label="Cancel Request"
+            buttonClass="btn-danger"
+            requireReason
+            busy={busy}
+            onConfirm={(reason) => run(() => act("CANCEL", { reason }))}
+          />
         </div>
       )}
     </div>

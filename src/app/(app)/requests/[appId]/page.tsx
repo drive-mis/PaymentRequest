@@ -1,22 +1,32 @@
-import { notFound, redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { toExact } from "@/lib/serialize";
+"use client";
+
+import Link from "next/link";
+import { useStore } from "@/lib/store";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ReadOnlyPanel } from "@/components/ReadOnlyPanel";
 import { HistoryTimeline } from "@/components/HistoryTimeline";
+import { LoadingScreen } from "@/components/Guard";
 import { formatDate, formatDateTime, formatCurrency } from "@/lib/format";
 import { ActionPanel } from "./ActionPanel";
-import type { StatusHistoryEntry } from "@/lib/types";
 
-export default async function RequestDetailPage({ params }: { params: { appId: string } }) {
-  const session = getSession();
-  if (!session) redirect("/login");
+export default function RequestDetailPage({ params }: { params: { appId: string } }) {
+  const { hydrated, getRequest, session } = useStore();
+  if (!hydrated || !session) return <LoadingScreen />;
 
-  const raw = await prisma.carLoanRequest.findUnique({ where: { APP_ID: params.appId } });
-  if (!raw) notFound();
-  const r = toExact(raw) as Record<string, any>;
-  const history = r.StatusHistoryLog as StatusHistoryEntry[];
+  const r = getRequest(params.appId);
+  if (!r) {
+    return (
+      <div className="card p-10 text-center">
+        <h1 className="text-lg font-semibold text-df-text">Request not found</h1>
+        <p className="text-sm text-slate-500 mt-1">No request exists with ID {params.appId}.</p>
+        <Link href="/dashboard" className="btn-primary mt-4 inline-flex">
+          Back to dashboard
+        </Link>
+      </div>
+    );
+  }
+
+  const history = r.StatusHistoryLog ?? [];
   const latestReturn = r.STATUS.startsWith("Returned by")
     ? [...history].reverse().find((e) => e.status === r.STATUS)
     : undefined;
@@ -25,7 +35,7 @@ export default async function RequestDetailPage({ params }: { params: { appId: s
     <div className="grid lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-6">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-bold text-df-text">{r.APP_ID}</h1>
             <StatusBadge status={r.STATUS} />
             {r.IsPotentialDuplicate && <span className="badge badge-amber">Possible Duplicate</span>}
@@ -41,7 +51,7 @@ export default async function RequestDetailPage({ params }: { params: { appId: s
             <p className="text-sm font-semibold text-blue-900">
               Returned by {latestReturn.changedByRole} — visible to all stakeholders
             </p>
-            <p className="text-sm text-blue-800 mt-1">“{latestReturn.reason}”</p>
+            <p className="text-sm text-blue-800 mt-1">&ldquo;{latestReturn.reason}&rdquo;</p>
             <p className="text-xs text-blue-600 mt-1">
               {latestReturn.changedBy} · {formatDateTime(latestReturn.changedAt)}
             </p>
@@ -106,7 +116,7 @@ export default async function RequestDetailPage({ params }: { params: { appId: s
           </dl>
         </div>
 
-        {(r.PRICE || r.LOAN_AMOUNT) && (
+        {(r.PRICE !== null || r.LOAN_AMOUNT !== null) && (
           <div className="card p-5">
             <h3 className="text-sm font-semibold text-df-text mb-3">Financial / Loan Details</h3>
             <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 text-sm">
@@ -123,7 +133,7 @@ export default async function RequestDetailPage({ params }: { params: { appId: s
               ].map(([label, value]) => (
                 <div key={label as string}>
                   <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</dt>
-                  <dd className="text-slate-700 mt-0.5">{value || "—"}</dd>
+                  <dd className="text-slate-700 mt-0.5">{(value as string) || "—"}</dd>
                 </div>
               ))}
             </dl>
@@ -141,10 +151,12 @@ export default async function RequestDetailPage({ params }: { params: { appId: s
                 ["Cheque Delivery Status", r.ChequeDeliveryStatus],
                 ["Handed to Operations", formatDateTime(r.ChequeHandoverToOperationsDate)],
                 ["Delivered to Customer", formatDateTime(r.ChequeDeliveredToCustomerDate)],
+                ["Cheque File", r.Cheque],
+                ["Customer Acknowledgement", r.CustomerAcknowledgementFile],
               ].map(([label, value]) => (
                 <div key={label as string}>
                   <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</dt>
-                  <dd className="text-slate-700 mt-0.5">{value || "—"}</dd>
+                  <dd className="text-slate-700 mt-0.5">{(value as string) || "—"}</dd>
                 </div>
               ))}
             </dl>
@@ -159,7 +171,9 @@ export default async function RequestDetailPage({ params }: { params: { appId: s
 
       <div className="space-y-6">
         <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Actions ({session.role})</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">
+            Actions ({session.role})
+          </h3>
           <ActionPanel role={session.role} name={session.name} record={r} />
         </div>
       </div>

@@ -1,16 +1,16 @@
-import { getSession } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+"use client";
+
+import { useStore } from "@/lib/store";
 import { RequestsTable } from "@/components/RequestsTable";
+import { LoadingScreen } from "@/components/Guard";
 
-export default async function MySubmissionsPage() {
-  const session = getSession();
-  if (!session) redirect("/login");
+export default function MySubmissionsPage() {
+  const { hydrated, requests, session } = useStore();
+  if (!hydrated || !session) return <LoadingScreen />;
 
-  const rows = await prisma.carLoanRequest.findMany({
-    where: { OR: [{ CreatedBy: session.name }, { DRV_SALES_MAN: session.name }] },
-    orderBy: { ModifiedOn: "desc" },
-  });
+  const rows = requests
+    .filter((r) => r.CreatedBy === session.name || r.DRV_SALES_MAN === session.name)
+    .sort((a, b) => new Date(b.ModifiedOn).getTime() - new Date(a.ModifiedOn).getTime());
 
   const returned = rows.filter((r) => r.STATUS === "Returned by Operations");
   const rest = rows.filter((r) => r.STATUS !== "Returned by Operations");
@@ -24,7 +24,9 @@ export default async function MySubmissionsPage() {
 
       {returned.length > 0 && (
         <div>
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-status-blue mb-3">Returned — needs your attention</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-status-blue mb-3">
+            Returned — needs your attention
+          </h2>
           <RequestsTable rows={returned} />
         </div>
       )}

@@ -4,11 +4,14 @@ An internal web app that replaces the Sales → Operations → Finance email han
 contracts with a structured, auditable workflow: contract creation, operations review, payment
 request, finance approval, cheque issuance, and delivery to the customer.
 
+**This is a frontend-only build.** There is no database, no API layer, and no server-side code.
+Everything runs in the browser.
+
 ## Tech stack
 
 - **Next.js 14 (App Router) + TypeScript + Tailwind CSS**
-- **SQLite via Prisma**, single table (`CarLoanRequest`) as required by the brief
-- No external services — file uploads are written to `public/uploads` on local disk
+- **Data lives in the browser's `localStorage`** — no database, no backend services
+- Recharts for the reporting charts
 
 ## Running it locally
 
@@ -17,23 +20,28 @@ npm install
 npm run dev
 ```
 
-That's it — no `.env` file or database setup needed. Then open
-[http://localhost:3000](http://localhost:3000).
+Then open [http://localhost:3000](http://localhost:3000). Nothing else to set up — no `.env`,
+no database, no migrations.
 
-Both `npm run dev` and `npm run start` (production mode) first run `npm run setup:db`, which
-syncs the database schema and — only if the table is empty — seeds the 20 sample requests. It
-never touches a database that already has records. The SQLite file lives at `prisma/dev.db` and
-is gitignored, so a fresh clone recreates it automatically on first run.
+## How the data works
 
-To run a production build instead:
+On first visit the app writes 20 sample requests into `localStorage` under the key
+`df_requests_v1`. From then on it reads and writes that same key, so **anything you do —
+submitting, returning, approving, issuing a cheque, confirming delivery — persists across page
+refreshes**.
 
-```bash
-npm install
-npm run build
-npm run start
-```
+Two consequences worth knowing:
 
-If you ever want to wipe everything and start over with fresh sample data, run `npm run db:reset`.
+- Data is **per-browser and per-device**. Two people opening the app see their own independent
+  copy; nothing is shared between them.
+- Clearing site data (or using a private window) starts you over from the sample data.
+
+There's a **Reset data** button in the top-right header that restores the original 20 sample
+requests at any time — handy for re-running a demo from a clean slate.
+
+Sample data is generated in [`src/lib/seedData.ts`](src/lib/seedData.ts). It's built at runtime
+rather than stored as a static blob so timestamps are always relative to today, which keeps the
+aging buckets and average-time-per-stage charts meaningful.
 
 ## Signing in — the role-switcher
 
@@ -45,98 +53,80 @@ There's no real authentication. `/login` shows a roster of six personas, two per
 | Operations | Yara Hassan, Tarek Fathy |
 | Finance | Nadia Salem, Omar Ibrahim |
 
-Picking a persona sets an `httpOnly` cookie (`df_session`) with that person's name and role.
-Every subsequent request is scoped to that role server-side — the UI hides actions a role
-shouldn't see, but the **API routes re-check permissions independently**, so nothing is
-enforced by hiding buttons alone. Use "Switch" in the top bar (or `/login`) to change persona
-at any time; "Sign out" clears the cookie.
-
-## Where the seed data lives
-
-`prisma/seed.ts` builds 20 `CarLoanRequest` rows covering every stage in the lifecycle:
-Drafts (Sales- and Operations-created), a plain Submitted/Under-Review pair, a request
-Returned by Operations and left pending, a second one that was returned *and* already
-fixed-and-resubmitted, a Rejected-by-Operations case, the same pair of scenarios on the
-Finance side (Returned-by-Finance pending vs. fixed-and-resubmitted), a Rejected-by-Finance
-case, an Approved-by-Finance case ready for cheque issuance, a Cheque Issued case, a Cheque
-Delivered to Operations case, two fully completed Delivered-to-Customer cases, one Cancelled
-case, and a duplicate-flagged pair (same customer + same vehicle, different loan amount).
-
-The customer and vehicle "source system" records it draws from live in
-`src/lib/mockSource.ts` — a stand-in for the real customer/inventory systems the brief asks
-to simulate as a lookup.
+Picking a persona stores `{name, role}` in `localStorage` (`df_session_v1`) and sets the acting
+role for the session. Use **Switch** in the top bar to change persona at any time, or **Sign
+out** to clear it.
 
 ## Data model
 
-Everything lives in one Prisma model, `CarLoanRequest` (`prisma/schema.prisma`), matching the
-exact field names from the brief. A handful of business field names contain spaces (e.g.
-`Contract Type`) or the pre-existing typo `Benefciary Documents` — Prisma model fields can't
-contain spaces, so those are declared under a Prisma-safe identifier and mapped back with
-`@map(...)` to the real column name. `src/lib/serialize.ts` converts between the two so that
-**every JSON payload the API sends or receives uses the exact business field names**, not the
-internal Prisma identifiers.
+One record type, `CarLoanRequest`, defined in [`src/lib/types.ts`](src/lib/types.ts). It uses
+the **exact field names** from the brief, including the ones containing spaces (`Contract Type`,
+`Payment Request Status`, `Cheque Number`) and the business's pre-existing spelling of
+`Benefciary Documents`. Nothing renames them anywhere in the app — no mapping layer.
 
-`StatusHistoryLog` and `AuditTrail` are stored as JSON-stringified arrays in text columns —
-SQLite has no native JSON type — and are only ever written server-side, appended to on every
-mutation. The client never writes to them directly.
+`StatusHistoryLog` and `AuditTrail` are embedded arrays on the record, exactly as the brief's
+"history table inside the same row" requires. They're append-only and are only ever written by
+the store, never by a screen.
 
-## Business rules — where they live
+## Where the business rules live
 
-All of Section 5's rules are implemented as server-side, mostly-pure functions in
-`src/lib/rules.ts` (transition table, stage-ownership/field-editability, duplicate detection,
-cheque-issuance gate, delivery gate) and enforced in the API route handlers
-(`src/app/api/requests/**`), never just in the UI:
+All of Section 5's rules are pure functions in [`src/lib/rules.ts`](src/lib/rules.ts) — the
+transition table, stage/field ownership, duplicate detection, and the payment-request,
+cheque-issuance, and delivery gates.
 
-- `POST /api/requests` — create a contract (Sales or Operations only); runs duplicate
-  detection before insert.
-- `PATCH /api/requests/[appId]` — save-as-draft field edits, restricted by role + current
-  `STATUS` + who created the record.
-- `POST /api/requests/[appId]/actions` — the lifecycle engine. Body is
-  `{ action, reason?, fields?, acknowledgeSimilar? }`; validates the transition, gates, and
-  duplicate check atomically with any bundled field updates, then appends one
-  `StatusHistoryLog` entry and one or more `AuditTrail` entries.
+[`src/lib/store.tsx`](src/lib/store.tsx) is the **single choke point** for every mutation, and
+it always runs those rules before writing. Screens never modify a record directly; they call
+`createRequest`, `patchRequest`, or `performAction`. So a button rendered by mistake still can't
+bypass a transition rule or a gate — the same guarantee the server-side API gave in the earlier
+full-stack version of this app, just relocated to the client.
 
-`STATUS` is never an editable form field anywhere in the UI — it only changes as the return
-value of a lifecycle action.
+`STATUS` is never an editable input anywhere in the UI. It only changes as the result of a
+lifecycle action.
 
 ## Screens
 
 Dashboard, New Contract (Sales & Operations), My Submissions (Sales), Operations Review Queue,
 My Payment Requests (Operations), Finance Review Queue, Payment Execution / Cheque Issuance,
-Cheque Handover, Request Detail (full read-only record + status history, visible to all three
-roles), and Reporting & Monitoring are all present as their own routes. **Deviation:** the
-brief's screen 5, "Create Payment Request," is not a separate route — it's folded into the
-Request Detail page's action panel for a request that's `Under Operations Review`, alongside
-the Operations-review decision (Return/Reject/Submit). This keeps the one screen that already
-shows the full record as the single place Operations fills in Section 4.6/4.7 and transitions
-the request in one atomic call, rather than duplicating the read-only panels on a second page.
+Cheque Handover, Request Detail (full record + status history visible to all three roles), and
+Reporting & Monitoring.
 
-## Known deviations / follow-ups
+**Deviation:** the brief's screen 5, "Create Payment Request," is not a separate route — it's
+folded into the Request Detail action panel for a request that's `Under Operations Review`,
+alongside the Operations review decision. This keeps the one screen that already shows the full
+record as the single place Operations fills in Sections 4.6/4.7 and transitions the request,
+rather than duplicating the read-only panels on a second page.
 
-- **Next.js version**: pinned to the latest 14.x patch (`14.2.35`) rather than upgrading to
-  Next 16, which would be a breaking migration. `npm audit` still flags a handful of advisories
-  against the Next 14 branch (mostly Server-Actions/Edge-runtime issues that don't apply to how
-  this app is used — no `next/image` remote patterns, no custom server, no Server Actions).
-  Worth revisiting before this app is ever exposed outside a local/internal network.
-- **Duplicate-detection audit trail**: the brief's Section 8 asks for "blocked outright vs.
-  flagged-and-acknowledged" duplicate metrics. Only the flagged-and-acknowledged count is
-  tracked (`IsPotentialDuplicate` on the saved row) — outright-blocked attempts are rejected
-  before a row is ever created, so there's nothing to count them from. A blocked-attempt log
-  table would need to be added if that metric matters in practice.
-- **File uploads** are written straight to `public/uploads` on local disk with a
-  timestamp-prefixed filename — fine for local/demo use per the brief's non-functional
-  requirements, not a production storage strategy.
+## Known limitations of a frontend-only build
+
+These are inherent to having no backend, not oversights:
+
+- **No shared state.** Each browser has its own copy of the data. This is a UI prototype /
+  single-user demo, not a multi-user system.
+- **File uploads are names only.** Picking a file records its filename against the record (which
+  is enough to exercise the document gates and show what was attached), but file *contents* are
+  never read or stored. Swapping in real uploads later only requires `FileField`'s `onChange` to
+  receive a URL instead of a filename.
+- **Rules are enforced client-side.** Fine for a prototype. If this ever becomes a real
+  multi-user system, `src/lib/rules.ts` is deliberately pure and framework-free so it can be
+  moved to a server and reused unchanged — the rules would need to run there, since anything in
+  the browser can be tampered with.
+- **Duplicate metrics count flagged-and-acknowledged only.** Outright-blocked attempts never
+  create a record, so there's nothing to count them from.
+- `/requests/[appId]` is a dynamic route, so the app runs via `next dev` / `next start`. Making
+  it deployable as fully static files (`output: 'export'`) would require switching that route to
+  a query parameter, since request IDs aren't knowable at build time.
 
 ## Project structure
 
 ```
-prisma/schema.prisma       single-table data model
-prisma/seed.ts              seed script
-src/lib/rules.ts            transition table, gates, duplicate detection (pure functions)
-src/lib/serialize.ts        Prisma-field <-> exact-business-field-name mapping
-src/lib/mockSource.ts       simulated customer/vehicle source-system lookup
-src/lib/reports.ts          reporting/monitoring aggregation
-src/app/api/**              API routes — all business-rule enforcement happens here
-src/app/(app)/**            authenticated screens (behind src/middleware.ts)
-src/app/login               role-switcher
+src/lib/types.ts         the single CarLoanRequest record type (exact business field names)
+src/lib/rules.ts         transitions, stage ownership, gates, duplicate detection (pure)
+src/lib/store.tsx        localStorage store — the only place records are written
+src/lib/seedData.ts      the 20 sample requests, built at runtime
+src/lib/mockSource.ts    simulated customer / vehicle source-system lookup
+src/lib/reports.ts       reporting aggregation (pure)
+src/lib/personas.ts      the six role-switcher personas
+src/components/Guard.tsx client-side route guard (replaces server middleware)
+src/app/(app)/**         the authenticated screens
+src/app/login            role-switcher
 ```

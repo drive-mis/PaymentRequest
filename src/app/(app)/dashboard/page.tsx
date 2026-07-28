@@ -1,25 +1,32 @@
+"use client";
+
 import Link from "next/link";
-import { getSession } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { useStore } from "@/lib/store";
 import { KpiTile } from "@/components/KpiTile";
 import { StatusBadge } from "@/components/StatusBadge";
+import { LoadingScreen } from "@/components/Guard";
 import { formatDateTime } from "@/lib/format";
+import type { CarLoanRequest } from "@/lib/types";
 
-export default async function DashboardPage() {
-  const session = getSession();
-  if (!session) redirect("/login");
+export default function DashboardPage() {
+  const { hydrated, requests, session } = useStore();
+  if (!hydrated || !session) return <LoadingScreen />;
+
   const { name, role } = session;
+  const all = [...requests].sort(
+    (a, b) => new Date(b.ModifiedOn).getTime() - new Date(a.ModifiedOn).getTime()
+  );
 
-  const all = await prisma.carLoanRequest.findMany({ orderBy: { ModifiedOn: "desc" } });
   const total = all.length;
   const nonCancelled = all.filter((r) => r.STATUS !== "Cancelled").length;
   const delivered = all.filter((r) => r.STATUS === "Delivered to Customer").length;
   const completionRate = nonCancelled ? Math.round((delivered / nonCancelled) * 100) : 0;
-  const returnedCount = all.filter((r) => r.STATUS === "Returned by Operations" || r.STATUS === "Returned by Finance").length;
+  const returnedCount = all.filter(
+    (r) => r.STATUS === "Returned by Operations" || r.STATUS === "Returned by Finance"
+  ).length;
 
-  let roleTiles: { label: string; value: number; sub?: string; href: string }[] = [];
-  let recent = all;
+  let roleTiles: { label: string; value: number; href: string }[] = [];
+  let recent: CarLoanRequest[] = all;
 
   if (role === "Sales") {
     const mine = all.filter((r) => r.CreatedBy === name || r.DRV_SALES_MAN === name);
@@ -42,7 +49,7 @@ export default async function DashboardPage() {
       { label: "Pending My Review", value: all.filter((r) => ["Payment Request Submitted", "Under Finance Review"].includes(r.STATUS)).length, href: "/payment-requests/review" },
       { label: "Ready to Issue Cheque", value: all.filter((r) => r.STATUS === "Approved by Finance").length, href: "/payment-execution" },
       { label: "Returned by Me", value: all.filter((r) => r.STATUS === "Returned by Finance").length, href: "/payment-requests/review" },
-      { label: "Delivered", value: all.filter((r) => r.STATUS === "Delivered to Customer").length, href: "/reporting" },
+      { label: "Delivered", value: delivered, href: "/reporting" },
     ];
   }
 
@@ -50,7 +57,7 @@ export default async function DashboardPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-df-text">Welcome, {name.split(" ")[0]}</h1>
-        <p className="text-sm text-slate-500 mt-1">Here's what needs your attention as {role}.</p>
+        <p className="text-sm text-slate-500 mt-1">Here&apos;s what needs your attention as {role}.</p>
       </div>
 
       <div>
@@ -93,7 +100,7 @@ export default async function DashboardPage() {
           </thead>
           <tbody>
             {recent.slice(0, 10).map((r) => (
-              <tr key={r.APP_ID} className="hover:bg-df-indigo/5 cursor-default">
+              <tr key={r.APP_ID} className="hover:bg-df-indigo/5">
                 <td className="px-5 py-2.5">
                   <Link href={`/requests/${r.APP_ID}`} className="font-medium text-df-indigo hover:underline">
                     {r.APP_ID}
@@ -109,6 +116,13 @@ export default async function DashboardPage() {
                 <td className="px-5 py-2.5 text-slate-400">{formatDateTime(r.ModifiedOn)}</td>
               </tr>
             ))}
+            {recent.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-5 py-8 text-center text-slate-400">
+                  Nothing here yet.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { PERSONAS, type Persona } from "@/lib/personas";
 import { Logo } from "@/components/Logo";
+import { useStore } from "@/lib/store";
 
 const ROLE_BLURB: Record<string, string> = {
   Sales: "Create contract requests and track their status through Operations and Finance.",
@@ -14,25 +15,13 @@ const ROLE_BLURB: Record<string, string> = {
 export function LoginClient() {
   const router = useRouter();
   const params = useSearchParams();
+  const { signIn } = useStore();
   const [loading, setLoading] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  async function pick(persona: Persona) {
+  function pick(persona: Persona) {
     setLoading(persona.name);
-    setError(null);
-    const res = await fetch("/api/session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: persona.name }),
-    });
-    if (!res.ok) {
-      setError("Could not sign in. Please try again.");
-      setLoading(null);
-      return;
-    }
-    const dest = params.get("from") || "/dashboard";
-    router.push(dest);
-    router.refresh();
+    signIn(persona.name);
+    router.push(params.get("from") || "/dashboard");
   }
 
   const roles: Array<"Sales" | "Operations" | "Finance"> = ["Sales", "Operations", "Finance"];
@@ -53,14 +42,10 @@ export function LoginClient() {
 
         <div className="relative z-10 text-center mb-10">
           <h1 className="text-3xl font-bold text-df-text tracking-tight">Treasury Execution System</h1>
-          <p className="text-slate-500 mt-2 text-sm">Sign in by selecting who you are — no password needed for this internal tool.</p>
+          <p className="text-slate-500 mt-2 text-sm">
+            Sign in by selecting who you are — no password needed for this internal tool.
+          </p>
         </div>
-
-        {error && (
-          <div className="relative z-10 mb-4 rounded-lg bg-red-50 border border-red-200 text-status-red text-sm px-4 py-2">
-            {error}
-          </div>
-        )}
 
         <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-5 max-w-4xl w-full">
           {roles.map((role) => (

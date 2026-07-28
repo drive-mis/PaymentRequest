@@ -8,16 +8,6 @@
 # production
 /build
 
-# database
-/prisma/dev.db
-/prisma/dev.db-journal
-
-# uploads (local file storage mock) — keep the seed's placeholder assets
-/public/uploads/*
-!/public/uploads/.gitkeep
-!/public/uploads/seed-cheque-sample.txt
-!/public/uploads/seed-acknowledgement-sample.txt
-
 # misc
 .DS_Store
 *.pem

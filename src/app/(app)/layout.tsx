@@ -1,15 +1,17 @@
-import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+"use client";
+
 import { Nav } from "@/components/Nav";
+import { Guard } from "@/components/Guard";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const session = getSession();
-  if (!session) redirect("/login");
-
   return (
-    <div className="min-h-screen">
-      <Nav name={session.name} role={session.role} />
-      <main className="max-w-7xl mx-auto px-6 py-8">{children}</main>
-    </div>
+    <Guard>
+      {(session) => (
+        <div className="min-h-screen">
+          <Nav name={session.name} role={session.role} />
+          <main className="max-w-7xl mx-auto px-6 py-8">{children}</main>
+        </div>
+      )}
+    </Guard>
   );
 }

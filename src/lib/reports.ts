@@ -1,5 +1,4 @@
-import { prisma } from "./prisma";
-import type { StatusHistoryEntry } from "./types";
+import type { CarLoanRequest } from "./types";
 
 function hoursBetween(a: string, b: string): number {
   return (new Date(b).getTime() - new Date(a).getTime()) / 3_600_000;
@@ -18,9 +17,8 @@ const NON_TERMINAL = new Set([
   "Cheque Delivered to Operations",
 ]);
 
-export async function computeReports() {
-  const records = await prisma.carLoanRequest.findMany();
-
+/** Pure aggregation over the in-memory records — Section 8 metrics. */
+export function computeReports(records: CarLoanRequest[]) {
   const byStatus: Record<string, number> = {};
   const byBranch: Record<string, number> = {};
   const byProgram: Record<string, number> = {};
@@ -47,22 +45,24 @@ export async function computeReports() {
 
   for (const r of records) {
     byStatus[r.STATUS] = (byStatus[r.STATUS] ?? 0) + 1;
-    byBranch[r.Branch] = (byBranch[r.Branch] ?? 0) + 1;
-    byProgram[r.PROGRAM_NAME] = (byProgram[r.PROGRAM_NAME] ?? 0) + 1;
+    if (r.Branch) byBranch[r.Branch] = (byBranch[r.Branch] ?? 0) + 1;
+    if (r.PROGRAM_NAME) byProgram[r.PROGRAM_NAME] = (byProgram[r.PROGRAM_NAME] ?? 0) + 1;
     if (r.DRV_SALES_MAN) bySalesAgent[r.DRV_SALES_MAN] = (bySalesAgent[r.DRV_SALES_MAN] ?? 0) + 1;
-    if (r.OperationsReviewedBy) byOpsReviewer[r.OperationsReviewedBy] = (byOpsReviewer[r.OperationsReviewedBy] ?? 0) + 1;
-    if (r.FinanceReviewedBy) byFinanceReviewer[r.FinanceReviewedBy] = (byFinanceReviewer[r.FinanceReviewedBy] ?? 0) + 1;
+    if (r.OperationsReviewedBy)
+      byOpsReviewer[r.OperationsReviewedBy] = (byOpsReviewer[r.OperationsReviewedBy] ?? 0) + 1;
+    if (r.FinanceReviewedBy)
+      byFinanceReviewer[r.FinanceReviewedBy] = (byFinanceReviewer[r.FinanceReviewedBy] ?? 0) + 1;
     if (r.IsPotentialDuplicate) flaggedDuplicates += 1;
 
     if (NON_TERMINAL.has(r.STATUS)) {
-      const ageDays = hoursBetween(r.ModifiedOn.toISOString(), new Date().toISOString()) / 24;
+      const ageDays = hoursBetween(r.ModifiedOn, new Date().toISOString()) / 24;
       if (ageDays <= 1) agingBuckets["0-1 day"] += 1;
       else if (ageDays <= 3) agingBuckets["1-3 days"] += 1;
       else if (ageDays <= 7) agingBuckets["3-7 days"] += 1;
       else agingBuckets["7+ days"] += 1;
     }
 
-    const log: StatusHistoryEntry[] = JSON.parse(r.StatusHistoryLog || "[]");
+    const log = r.StatusHistoryLog ?? [];
     const find = (status: string) => log.find((e) => e.status === status);
     const created = log[0];
     const underOps = find("Under Operations Review");
@@ -71,10 +71,14 @@ export async function computeReports() {
     const chequeIssued = find("Cheque Issued");
     const delivered = find("Delivered to Customer");
 
-    if (created && underOps) stageDurations["Sales -> Operations Review"].push(hoursBetween(created.changedAt, underOps.changedAt));
-    if (paymentSubmitted && approved) stageDurations["Operations -> Finance Review"].push(hoursBetween(paymentSubmitted.changedAt, approved.changedAt));
-    if (approved && chequeIssued) stageDurations["Finance Approval -> Cheque Issued"].push(hoursBetween(approved.changedAt, chequeIssued.changedAt));
-    if (chequeIssued && delivered) stageDurations["Cheque Issued -> Delivered"].push(hoursBetween(chequeIssued.changedAt, delivered.changedAt));
+    if (created && underOps)
+      stageDurations["Sales -> Operations Review"].push(hoursBetween(created.changedAt, underOps.changedAt));
+    if (paymentSubmitted && approved)
+      stageDurations["Operations -> Finance Review"].push(hoursBetween(paymentSubmitted.changedAt, approved.changedAt));
+    if (approved && chequeIssued)
+      stageDurations["Finance Approval -> Cheque Issued"].push(hoursBetween(approved.changedAt, chequeIssued.changedAt));
+    if (chequeIssued && delivered)
+      stageDurations["Cheque Issued -> Delivered"].push(hoursBetween(chequeIssued.changedAt, delivered.changedAt));
 
     for (const entry of log) {
       if (entry.status === "Returned by Operations") {
@@ -96,7 +100,10 @@ export async function computeReports() {
   const completionRate = total - cancelled > 0 ? delivered / (total - cancelled) : 0;
 
   const avgStageDurationHours = Object.fromEntries(
-    Object.entries(stageDurations).map(([k, arr]) => [k, arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null])
+    Object.entries(stageDurations).map(([k, arr]) => [
+      k,
+      arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null,
+    ])
   );
 
   const topReasons = (reasons: Record<string, number>) =>
@@ -123,4 +130,4 @@ export async function computeReports() {
   };
 }
 
-export type ReportsData = Awaited<ReturnType<typeof computeReports>>;
+export type ReportsData = ReturnType<typeof computeReports>;

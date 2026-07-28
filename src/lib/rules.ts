@@ -1,8 +1,13 @@
-import type { Role, Status } from "./types";
+import type { CarLoanRequest, Role, Status } from "./types";
 
 // ---------------------------------------------------------------------------
-// Section 5: business rules & validation, enforced server-side only.
-// This module is pure/testable — no Prisma calls, no I/O.
+// Section 5: business rules & validation.
+//
+// This module is pure and framework-free — no storage access, no React. In the
+// original full-stack build these rules ran server-side; in this frontend-only
+// build the store (src/lib/store.tsx) is the single choke point that applies
+// them, so every mutation still goes through exactly one enforcement path and
+// the UI can never skip a rule by rendering a button.
 // ---------------------------------------------------------------------------
 
 export class RuleViolation extends Error {
@@ -12,8 +17,7 @@ export class RuleViolation extends Error {
   }
 }
 
-// ---- Stage ownership (Section 5.1) — which sections a role may edit, and in
-// which statuses. Field names below are the Prisma model field identifiers.
+// ---- Stage ownership (Section 5.1) — which fields a role may edit, and when.
 
 export const SECTION_4_1_CREATE_FIELDS = [
   "APP_CUSTOMER_TYPE",
@@ -24,22 +28,26 @@ export const SECTION_4_1_CREATE_FIELDS = [
 ] as const;
 
 export const SECTION_4_4_CONTRACT_FIELDS = [
-  "ContractType",
-  "ContractReadyStatus",
-  "ContractSigningDate",
+  "Contract Type",
+  "Contract Ready Status",
+  "Contract Signing Date",
   "DRV_SALES_MAN",
   "DRV_SALES_MANAGER",
-  "InsuranceType",
-  "ReceivalMethod",
-  "ExternalContract",
-  "CarDocuments",
-  "BenefciaryDocuments",
-  "AllCustomerCarDocuments",
+  "Insurance Type",
+  "Receival Method",
+  "External Contract",
+  "Car Documents",
+  "Benefciary Documents",
+  "All Customer Car Documents",
   "Inspection",
   "Pricing",
 ] as const;
 
-export const SECTION_4_5_OPERATIONS_REVIEW_FIELDS = ["OperationNotes", "DEVIATION", "FEEDBACK"] as const;
+export const SECTION_4_5_OPERATIONS_REVIEW_FIELDS = [
+  "Operation Notes",
+  "DEVIATION",
+  "FEEDBACK",
+] as const;
 
 export const SECTION_4_6_FINANCIAL_FIELDS = [
   "PRICE",
@@ -52,15 +60,15 @@ export const SECTION_4_6_FINANCIAL_FIELDS = [
   "BANK_BRANCH",
 ] as const;
 
-export const SECTION_4_7_PAYMENT_REQUEST_FIELDS = ["PaymentRequestFile"] as const;
+export const SECTION_4_7_PAYMENT_REQUEST_FIELDS = ["Payment Request File"] as const;
 
 export const SECTION_4_8_FINANCE_FIELDS = [
-  "FinanceNotes",
-  "ChequeNumber",
-  "ChequeLocation",
+  "Finance Notes",
+  "Cheque Number",
+  "Cheque Location",
   "Cheque",
-  "CustomerCheque",
-  "PaymentReceipt",
+  "Customer Cheque",
+  "Payment Receipt",
   "Receipt",
 ] as const;
 
@@ -75,8 +83,8 @@ export function creatableFieldsFor(role: Role): readonly string[] {
 }
 
 /**
- * Which fields a role may PATCH (save-as-draft, no transition) given the
- * record's current STATUS. Returns [] if nothing is editable right now.
+ * Which fields a role may edit given the record's current STATUS.
+ * Returns [] if nothing is editable right now.
  */
 export function editableFieldsFor(role: Role, status: Status, createdByRole: Role): readonly string[] {
   if (role === "Sales") {
@@ -130,9 +138,7 @@ export function assertFieldsEditable(
   const allowed = new Set(editableFieldsFor(role, status, createdByRole));
   for (const key of Object.keys(fields)) {
     if (!allowed.has(key)) {
-      throw new RuleViolation(
-        `${role} cannot edit field "${key}" while STATUS is "${status}".`
-      );
+      throw new RuleViolation(`${role} cannot edit field "${key}" while STATUS is "${status}".`);
     }
   }
 }
@@ -150,16 +156,16 @@ interface TransitionRule {
 
 const CHEQUE_ISSUE_GATE = (r: Record<string, unknown>): string | null => {
   const missing: string[] = [];
-  if (!r.ChequeNumber) missing.push("Cheque Number");
-  if (!r.Cheque) missing.push("Cheque (photo)");
-  if (!r.BANK_NAME) missing.push("Bank Name");
-  if (!r.BANK_BRANCH) missing.push("Bank Branch");
+  if (!r["Cheque Number"]) missing.push("Cheque Number");
+  if (!r["Cheque"]) missing.push("Cheque (photo)");
+  if (!r["BANK_NAME"]) missing.push("Bank Name");
+  if (!r["BANK_BRANCH"]) missing.push("Bank Branch");
   if (missing.length) return `Cannot issue cheque — missing: ${missing.join(", ")}.`;
   return null;
 };
 
 const DELIVERY_GATE = (r: Record<string, unknown>): string | null => {
-  if (!r.CustomerAcknowledgementFile) {
+  if (!r["CustomerAcknowledgementFile"]) {
     return "Cannot confirm delivery — customer acknowledgement file is required.";
   }
   return null;
@@ -167,11 +173,11 @@ const DELIVERY_GATE = (r: Record<string, unknown>): string | null => {
 
 const PAYMENT_REQUEST_GATE = (r: Record<string, unknown>): string | null => {
   const missing: string[] = [];
-  if (r.PRICE === null || r.PRICE === undefined) missing.push("Price");
-  if (r.DOWN_PAYMENT === null || r.DOWN_PAYMENT === undefined) missing.push("Down Payment");
-  if (r.LOAN_AMOUNT === null || r.LOAN_AMOUNT === undefined) missing.push("Loan Amount");
-  if (!r.BANK_NAME) missing.push("Bank Name");
-  if (!r.BANK_BRANCH) missing.push("Bank Branch");
+  if (r["PRICE"] === null || r["PRICE"] === undefined) missing.push("Price");
+  if (r["DOWN_PAYMENT"] === null || r["DOWN_PAYMENT"] === undefined) missing.push("Down Payment");
+  if (r["LOAN_AMOUNT"] === null || r["LOAN_AMOUNT"] === undefined) missing.push("Loan Amount");
+  if (!r["BANK_NAME"]) missing.push("Bank Name");
+  if (!r["BANK_BRANCH"]) missing.push("Bank Branch");
   if (missing.length) return `Cannot submit payment request — missing: ${missing.join(", ")}.`;
   return null;
 };
@@ -296,28 +302,28 @@ export function validateTransition(
 }
 
 /** Keeps the sub-status fields (Sections 4.7/4.8/4.9) aligned with the master STATUS. */
-export function deriveSubStatuses(newStatus: Status): {
-  PaymentRequestStatus?: string;
-  FinanceStatus?: string;
-  ChequeDeliveryStatus?: string;
-} {
+export function deriveSubStatuses(newStatus: Status): Partial<CarLoanRequest> {
   switch (newStatus) {
     case "Draft":
-      return { PaymentRequestStatus: "Draft" };
+      return { "Payment Request Status": "Draft" };
     case "Payment Request Submitted":
-      return { PaymentRequestStatus: "Submitted" };
+      return { "Payment Request Status": "Submitted" };
     case "Under Finance Review":
-      return { PaymentRequestStatus: "Under Review" };
+      return { "Payment Request Status": "Under Review" };
     case "Returned by Finance":
-      return { PaymentRequestStatus: "Returned" };
+      return { "Payment Request Status": "Returned" };
     case "Rejected by Finance":
-      return { PaymentRequestStatus: "Rejected" };
+      return { "Payment Request Status": "Rejected" };
     case "Approved by Finance":
-      return { PaymentRequestStatus: "Approved", FinanceStatus: "Cheque Prepared" };
+      return { "Payment Request Status": "Approved", "Finance Status": "Cheque Prepared" };
     case "Cheque Issued":
-      return { PaymentRequestStatus: "Paid", FinanceStatus: "Cheque Issued", ChequeDeliveryStatus: "Pending" };
+      return {
+        "Payment Request Status": "Paid",
+        "Finance Status": "Cheque Issued",
+        ChequeDeliveryStatus: "Pending",
+      };
     case "Cheque Delivered to Operations":
-      return { FinanceStatus: "Released", ChequeDeliveryStatus: "Delivered to Operations" };
+      return { "Finance Status": "Released", ChequeDeliveryStatus: "Delivered to Operations" };
     case "Delivered to Customer":
       return { ChequeDeliveryStatus: "Delivered to Customer" };
     default:
@@ -368,8 +374,7 @@ export function checkDuplicates(
 
   const similarMatches = live.filter((r) => {
     if (exactMatch && r.APP_ID === exactMatch.APP_ID) return false;
-    const sameCustomerCar = r.CUSTOMER_ID_NUMBER === customerIdNumber && r.CHASIS_NUMBER === chassisNumber;
-    return sameCustomerCar;
+    return r.CUSTOMER_ID_NUMBER === customerIdNumber && r.CHASIS_NUMBER === chassisNumber;
   });
 
   return { exactMatch, similarMatches };

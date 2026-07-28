@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
-
+// Frontend-only build: there's no upload endpoint and no file storage, so
+// picking a file records its name against the record (enough to demo the
+// document/attachment gates and show what was attached). File contents are
+// never read or stored — swapping this for a real upload later only needs
+// onChange to receive a URL instead of a filename.
 export function FileField({
   label,
   value,
@@ -10,29 +13,12 @@ export function FileField({
 }: {
   label: string;
   value: string | null | undefined;
-  onChange: (path: string) => void;
+  onChange: (fileName: string) => void;
   required?: boolean;
 }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Upload failed");
-      onChange(data.path);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
-    } finally {
-      setBusy(false);
-    }
+    if (file) onChange(file.name);
   }
 
   return (
@@ -42,16 +28,11 @@ export function FileField({
       </label>
       <div className="flex items-center gap-3">
         <label className="btn-secondary cursor-pointer !py-1.5">
-          {busy ? "Uploading…" : value ? "Replace file" : "Upload file"}
-          <input type="file" className="hidden" onChange={handleFile} disabled={busy} />
+          {value ? "Replace file" : "Choose file"}
+          <input type="file" className="hidden" onChange={handleFile} />
         </label>
-        {value && (
-          <a href={value} target="_blank" rel="noreferrer" className="text-xs text-df-indigo underline truncate max-w-[200px]">
-            {value.split("/").pop()}
-          </a>
-        )}
+        {value && <span className="text-xs text-slate-500 truncate max-w-[180px]" title={value}>{value}</span>}
       </div>
-      {error && <p className="text-xs text-status-red mt-1">{error}</p>}
     </div>
   );
 }
