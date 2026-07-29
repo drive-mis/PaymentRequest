@@ -1,5 +1,13 @@
 import { MOCK_CUSTOMERS, MOCK_VEHICLES } from "./mockSource";
-import { BRANCHES, PROGRAMS, BANKS, SALES_MANAGERS } from "./choices";
+import {
+  BRANCHES,
+  BANKS,
+  SALES_MANAGERS,
+  CAR_TYPES,
+  CONTRACT_TYPES,
+  INSURANCE_TYPES,
+  RECEIVAL_METHODS,
+} from "./choices";
 import { computeDuplicateCheckKey, deriveSubStatuses } from "./rules";
 import type { AuditEntry, CarLoanRequest, Role, Status, StatusHistoryEntry } from "./types";
 
@@ -22,7 +30,6 @@ interface SeedSpec {
   customer: (typeof MOCK_CUSTOMERS)[number];
   vehicle: (typeof MOCK_VEHICLES)[number];
   branch: string;
-  program: (typeof PROGRAMS)[number];
   salesAgent: string;
   status: Status;
   startDaysAgo: number;
@@ -81,24 +88,21 @@ function buildSpecs(): SeedSpec[] {
 
   // 1. Plain Draft (Sales)
   specs.push({
-    idx: n++, customer: MOCK_CUSTOMERS[0], vehicle: MOCK_VEHICLES[0], branch: BRANCHES[0],
-    program: PROGRAMS[0], salesAgent: "Mona Aziz", status: "Draft", startDaysAgo: 2,
+    idx: n++, customer: MOCK_CUSTOMERS[0], vehicle: MOCK_VEHICLES[0], branch: BRANCHES[0], salesAgent: "Mona Aziz", status: "Draft", startDaysAgo: 2,
     steps: [step("Sales", "Draft", "Mona Aziz", "Sales", "Created")], gapsHours: [0],
     contractReadyStatus: "Not Ready",
   });
 
   // 2. Draft created by Operations (same create capability as Sales)
   specs.push({
-    idx: n++, customer: MOCK_CUSTOMERS[1], vehicle: MOCK_VEHICLES[1], branch: BRANCHES[1],
-    program: PROGRAMS[0], salesAgent: "Yara Hassan", status: "Draft", startDaysAgo: 1,
+    idx: n++, customer: MOCK_CUSTOMERS[1], vehicle: MOCK_VEHICLES[1], branch: BRANCHES[1], salesAgent: "Yara Hassan", status: "Draft", startDaysAgo: 1,
     steps: [step("Operations", "Draft", "Yara Hassan", "Operations", "Created")], gapsHours: [0],
     contractReadyStatus: "Ready for Review",
   });
 
   // 3. Submitted for Operations Review
   specs.push({
-    idx: n++, customer: MOCK_CUSTOMERS[2], vehicle: MOCK_VEHICLES[2], branch: BRANCHES[2],
-    program: PROGRAMS[1], salesAgent: "Karim Adel", status: "Submitted for Operations Review", startDaysAgo: 6,
+    idx: n++, customer: MOCK_CUSTOMERS[2], vehicle: MOCK_VEHICLES[2], branch: BRANCHES[2], salesAgent: "Karim Adel", status: "Submitted for Operations Review", startDaysAgo: 6,
     steps: [
       step("Sales", "Draft", "Karim Adel", "Sales", "Created"),
       step("Sales", "Submitted for Operations Review", "Karim Adel", "Sales"),
@@ -107,8 +111,7 @@ function buildSpecs(): SeedSpec[] {
 
   // 4. Under Operations Review
   specs.push({
-    idx: n++, customer: MOCK_CUSTOMERS[3], vehicle: MOCK_VEHICLES[3], branch: BRANCHES[0],
-    program: PROGRAMS[2], salesAgent: "Mona Aziz", status: "Under Operations Review", startDaysAgo: 5,
+    idx: n++, customer: MOCK_CUSTOMERS[3], vehicle: MOCK_VEHICLES[3], branch: BRANCHES[0], salesAgent: "Mona Aziz", status: "Under Operations Review", startDaysAgo: 5,
     steps: [
       step("Sales", "Draft", "Mona Aziz", "Sales", "Created"),
       step("Sales", "Submitted for Operations Review", "Mona Aziz", "Sales"),
@@ -119,8 +122,7 @@ function buildSpecs(): SeedSpec[] {
 
   // 5. Returned by Operations — still sitting with Sales
   specs.push({
-    idx: n++, customer: MOCK_CUSTOMERS[4], vehicle: MOCK_VEHICLES[4], branch: BRANCHES[3],
-    program: PROGRAMS[0], salesAgent: "Karim Adel", status: "Returned by Operations", startDaysAgo: 4,
+    idx: n++, customer: MOCK_CUSTOMERS[4], vehicle: MOCK_VEHICLES[4], branch: BRANCHES[3], salesAgent: "Karim Adel", status: "Returned by Operations", startDaysAgo: 4,
     steps: [
       step("Sales", "Draft", "Karim Adel", "Sales", "Created"),
       step("Sales", "Submitted for Operations Review", "Karim Adel", "Sales"),
@@ -133,8 +135,7 @@ function buildSpecs(): SeedSpec[] {
 
   // 6. Returned by Operations, then fixed & resubmitted
   specs.push({
-    idx: n++, customer: MOCK_CUSTOMERS[5], vehicle: MOCK_VEHICLES[5], branch: BRANCHES[1],
-    program: PROGRAMS[1], salesAgent: "Mona Aziz", status: "Submitted for Operations Review", startDaysAgo: 9,
+    idx: n++, customer: MOCK_CUSTOMERS[5], vehicle: MOCK_VEHICLES[5], branch: BRANCHES[1], salesAgent: "Mona Aziz", status: "Submitted for Operations Review", startDaysAgo: 9,
     steps: [
       step("Sales", "Draft", "Mona Aziz", "Sales", "Created"),
       step("Sales", "Submitted for Operations Review", "Mona Aziz", "Sales"),
@@ -147,8 +148,7 @@ function buildSpecs(): SeedSpec[] {
 
   // 7. Rejected by Operations
   specs.push({
-    idx: n++, customer: MOCK_CUSTOMERS[6], vehicle: MOCK_VEHICLES[6], branch: BRANCHES[4],
-    program: PROGRAMS[0], salesAgent: "Karim Adel", status: "Rejected by Operations", startDaysAgo: 10,
+    idx: n++, customer: MOCK_CUSTOMERS[6], vehicle: MOCK_VEHICLES[6], branch: BRANCHES[4], salesAgent: "Karim Adel", status: "Rejected by Operations", startDaysAgo: 10,
     steps: [
       step("Sales", "Draft", "Karim Adel", "Sales", "Created"),
       step("Sales", "Submitted for Operations Review", "Karim Adel", "Sales"),
@@ -160,8 +160,7 @@ function buildSpecs(): SeedSpec[] {
 
   // 8. Payment Request Submitted — awaiting Finance pickup
   specs.push({
-    idx: n++, customer: MOCK_CUSTOMERS[7], vehicle: MOCK_VEHICLES[7], branch: BRANCHES[0],
-    program: PROGRAMS[2], salesAgent: "Tarek Fathy", status: "Payment Request Submitted", startDaysAgo: 7,
+    idx: n++, customer: MOCK_CUSTOMERS[7], vehicle: MOCK_VEHICLES[7], branch: BRANCHES[0], salesAgent: "Tarek Fathy", status: "Payment Request Submitted", startDaysAgo: 7,
     steps: [
       step("Sales", "Draft", "Mona Aziz", "Sales", "Created"),
       step("Sales", "Submitted for Operations Review", "Mona Aziz", "Sales"),
@@ -173,8 +172,7 @@ function buildSpecs(): SeedSpec[] {
 
   // 9. Under Finance Review
   specs.push({
-    idx: n++, customer: MOCK_CUSTOMERS[8], vehicle: MOCK_VEHICLES[8], branch: BRANCHES[5],
-    program: PROGRAMS[3], salesAgent: "Yara Hassan", status: "Under Finance Review", startDaysAgo: 6,
+    idx: n++, customer: MOCK_CUSTOMERS[8], vehicle: MOCK_VEHICLES[8], branch: BRANCHES[5], salesAgent: "Yara Hassan", status: "Under Finance Review", startDaysAgo: 6,
     steps: [
       step("Sales", "Draft", "Karim Adel", "Sales", "Created"),
       step("Sales", "Submitted for Operations Review", "Karim Adel", "Sales"),
@@ -187,8 +185,7 @@ function buildSpecs(): SeedSpec[] {
 
   // 10. Returned by Finance — still sitting with Operations
   specs.push({
-    idx: n++, customer: MOCK_CUSTOMERS[9], vehicle: MOCK_VEHICLES[9], branch: BRANCHES[2],
-    program: PROGRAMS[0], salesAgent: "Tarek Fathy", status: "Returned by Finance", startDaysAgo: 8,
+    idx: n++, customer: MOCK_CUSTOMERS[9], vehicle: MOCK_VEHICLES[9], branch: BRANCHES[2], salesAgent: "Tarek Fathy", status: "Returned by Finance", startDaysAgo: 8,
     steps: [
       step("Sales", "Draft", "Mona Aziz", "Sales", "Created"),
       step("Sales", "Submitted for Operations Review", "Mona Aziz", "Sales"),
@@ -203,8 +200,7 @@ function buildSpecs(): SeedSpec[] {
 
   // 11. Returned by Finance, then fixed & resubmitted
   specs.push({
-    idx: n++, customer: MOCK_CUSTOMERS[0], vehicle: MOCK_VEHICLES[9], branch: BRANCHES[0],
-    program: PROGRAMS[1], salesAgent: "Karim Adel", status: "Payment Request Submitted", startDaysAgo: 12,
+    idx: n++, customer: MOCK_CUSTOMERS[0], vehicle: MOCK_VEHICLES[9], branch: BRANCHES[0], salesAgent: "Karim Adel", status: "Payment Request Submitted", startDaysAgo: 12,
     steps: [
       step("Sales", "Draft", "Karim Adel", "Sales", "Created"),
       step("Sales", "Submitted for Operations Review", "Karim Adel", "Sales"),
@@ -220,8 +216,7 @@ function buildSpecs(): SeedSpec[] {
 
   // 12. Rejected by Finance
   specs.push({
-    idx: n++, customer: MOCK_CUSTOMERS[1], vehicle: MOCK_VEHICLES[8], branch: BRANCHES[3],
-    program: PROGRAMS[2], salesAgent: "Mona Aziz", status: "Rejected by Finance", startDaysAgo: 13,
+    idx: n++, customer: MOCK_CUSTOMERS[1], vehicle: MOCK_VEHICLES[8], branch: BRANCHES[3], salesAgent: "Mona Aziz", status: "Rejected by Finance", startDaysAgo: 13,
     steps: [
       step("Sales", "Draft", "Mona Aziz", "Sales", "Created"),
       step("Sales", "Submitted for Operations Review", "Mona Aziz", "Sales"),
@@ -236,8 +231,7 @@ function buildSpecs(): SeedSpec[] {
 
   // 13. Approved by Finance — ready for cheque issuance
   specs.push({
-    idx: n++, customer: MOCK_CUSTOMERS[2], vehicle: MOCK_VEHICLES[7], branch: BRANCHES[1],
-    program: PROGRAMS[0], salesAgent: "Karim Adel", status: "Approved by Finance", startDaysAgo: 5,
+    idx: n++, customer: MOCK_CUSTOMERS[2], vehicle: MOCK_VEHICLES[7], branch: BRANCHES[1], salesAgent: "Karim Adel", status: "Approved by Finance", startDaysAgo: 5,
     steps: [
       step("Sales", "Draft", "Karim Adel", "Sales", "Created"),
       step("Sales", "Submitted for Operations Review", "Karim Adel", "Sales"),
@@ -251,8 +245,7 @@ function buildSpecs(): SeedSpec[] {
 
   // 14. Cheque Issued — awaiting Operations pickup
   specs.push({
-    idx: n++, customer: MOCK_CUSTOMERS[3], vehicle: MOCK_VEHICLES[6], branch: BRANCHES[4],
-    program: PROGRAMS[1], salesAgent: "Mona Aziz", status: "Cheque Issued", startDaysAgo: 11,
+    idx: n++, customer: MOCK_CUSTOMERS[3], vehicle: MOCK_VEHICLES[6], branch: BRANCHES[4], salesAgent: "Mona Aziz", status: "Cheque Issued", startDaysAgo: 11,
     steps: [
       step("Sales", "Draft", "Mona Aziz", "Sales", "Created"),
       step("Sales", "Submitted for Operations Review", "Mona Aziz", "Sales"),
@@ -268,8 +261,7 @@ function buildSpecs(): SeedSpec[] {
 
   // 15. Cheque Delivered to Operations — awaiting customer delivery
   specs.push({
-    idx: n++, customer: MOCK_CUSTOMERS[4], vehicle: MOCK_VEHICLES[5], branch: BRANCHES[0],
-    program: PROGRAMS[2], salesAgent: "Karim Adel", status: "Cheque Delivered to Operations", startDaysAgo: 14,
+    idx: n++, customer: MOCK_CUSTOMERS[4], vehicle: MOCK_VEHICLES[5], branch: BRANCHES[0], salesAgent: "Karim Adel", status: "Cheque Delivered to Operations", startDaysAgo: 14,
     steps: [
       step("Sales", "Draft", "Karim Adel", "Sales", "Created"),
       step("Sales", "Submitted for Operations Review", "Karim Adel", "Sales"),
@@ -294,7 +286,7 @@ function buildSpecs(): SeedSpec[] {
     const fin = FIN_TWO[k];
     specs.push({
       idx: n++, customer: MOCK_CUSTOMERS[6 + k], vehicle: MOCK_VEHICLES[3 + k],
-      branch: BRANCHES[k % BRANCHES.length], program: PROGRAMS[k % PROGRAMS.length],
+      branch: BRANCHES[k % BRANCHES.length],
       salesAgent: sales, status: "Delivered to Customer", startDaysAgo: 18 + k * 2,
       steps: [
         step("Sales", "Draft", sales, "Sales", "Created"),
@@ -319,8 +311,7 @@ function buildSpecs(): SeedSpec[] {
 
   // 18. Cancelled
   specs.push({
-    idx: n++, customer: MOCK_CUSTOMERS[5], vehicle: MOCK_VEHICLES[4], branch: BRANCHES[2],
-    program: PROGRAMS[0], salesAgent: "Mona Aziz", status: "Cancelled", startDaysAgo: 3,
+    idx: n++, customer: MOCK_CUSTOMERS[5], vehicle: MOCK_VEHICLES[4], branch: BRANCHES[2], salesAgent: "Mona Aziz", status: "Cancelled", startDaysAgo: 3,
     steps: [
       step("Sales", "Draft", "Mona Aziz", "Sales", "Created"),
       step("System", "Cancelled", "Mona Aziz", "Sales", "Cancelled",
@@ -333,8 +324,7 @@ function buildSpecs(): SeedSpec[] {
   const dupVehicle = MOCK_VEHICLES[2];
   const dupFirstId = appId(n);
   specs.push({
-    idx: n++, customer: dupCustomer, vehicle: dupVehicle, branch: BRANCHES[0],
-    program: PROGRAMS[1], salesAgent: "Karim Adel", status: "Payment Request Submitted", startDaysAgo: 16,
+    idx: n++, customer: dupCustomer, vehicle: dupVehicle, branch: BRANCHES[0], salesAgent: "Karim Adel", status: "Payment Request Submitted", startDaysAgo: 16,
     steps: [
       step("Sales", "Draft", "Karim Adel", "Sales", "Created"),
       step("Sales", "Submitted for Operations Review", "Karim Adel", "Sales"),
@@ -344,8 +334,7 @@ function buildSpecs(): SeedSpec[] {
     loan: { price: 2_000_000, down: 400_000, loan: 1_600_000, rate: 22, tenor: 48, fees: 14_000, bank: BANKS[0].BANK_NAME, bankBranch: BANKS[0].branches[0] },
   });
   specs.push({
-    idx: n++, customer: dupCustomer, vehicle: dupVehicle, branch: BRANCHES[0],
-    program: PROGRAMS[1], salesAgent: "Mona Aziz", status: "Draft", startDaysAgo: 2,
+    idx: n++, customer: dupCustomer, vehicle: dupVehicle, branch: BRANCHES[0], salesAgent: "Mona Aziz", status: "Draft", startDaysAgo: 2,
     steps: [step("Sales", "Draft", "Mona Aziz", "Sales", "Created")], gapsHours: [0],
     isDuplicate: true, duplicateOf: dupFirstId,
   });
@@ -367,8 +356,8 @@ function toRecord(spec: SeedSpec): CarLoanRequest {
     APP_ID: appId(spec.idx),
     APP_DATETIME: history[0].changedAt,
     APP_CUSTOMER_TYPE: spec.customer.APP_CUSTOMER_TYPE,
-    APP_PROGRAM_ID: spec.program.APP_PROGRAM_ID,
-    PROGRAM_NAME: spec.program.PROGRAM_NAME,
+    APP_PROGRAM_ID: spec.customer.APP_PROGRAM_ID,
+    PROGRAM_NAME: spec.customer.PROGRAM_NAME,
     Branch: spec.branch,
     STATUS: spec.status,
     CREATION_DATE: "Sample data",
@@ -385,26 +374,29 @@ function toRecord(spec: SeedSpec): CarLoanRequest {
 
     BRAND_NAME: spec.vehicle.BRAND_NAME,
     MODEL: spec.vehicle.MODEL,
-    "Car Type": spec.vehicle["Car Type"],
     CHASIS_NUMBER: spec.vehicle.CHASIS_NUMBER,
     MOTOR_NUMBER: spec.vehicle.MOTOR_NUMBER,
     COLOR: spec.vehicle.COLOR,
     ENGINE_SIZE: spec.vehicle.ENGINE_SIZE,
     YEAR_OF_PRODUCT: spec.vehicle.YEAR_OF_PRODUCT,
 
-    "Contract Type": "New Finance",
+    // Cycle the dropdown values across the sample set so every option appears.
+    "Car Type": CAR_TYPES[spec.idx % CAR_TYPES.length],
+    "Contract Type": CONTRACT_TYPES[spec.idx % CONTRACT_TYPES.length],
     "Contract Ready Status": spec.contractReadyStatus ?? "Sent for Review",
     "Contract Signing Date": spec.loan ? history[0].changedAt : null,
     DRV_SALES_MAN: spec.salesAgent,
     DRV_SALES_MANAGER: SALES_MANAGERS[spec.idx % SALES_MANAGERS.length],
-    "Insurance Type": "Comprehensive",
-    "Receival Method": "Branch Pickup",
-    "External Contract": null,
-    "Car Documents": null,
-    "Benefciary Documents": null,
+    "Insurance Type": INSURANCE_TYPES[spec.idx % INSURANCE_TYPES.length],
+    "Receival Method": RECEIVAL_METHODS[spec.idx % RECEIVAL_METHODS.length],
+    "External Contract": "external-contract.pdf",
+    "Car Documents": "car-documents.pdf",
+    "Benefciary Documents": "beneficiary-documents.pdf",
     "All Customer Car Documents": null,
-    Inspection: null,
-    Pricing: null,
+    Inspection: "inspection-report.pdf",
+    Pricing: "pricing-sheet.pdf",
+    Invoice: "invoice.pdf",
+    Receipt: "receipt.pdf",
 
     "Operation Notes": spec.operationNotes ?? null,
     DEVIATION: spec.deviation ?? null,
@@ -431,10 +423,12 @@ function toRecord(spec: SeedSpec): CarLoanRequest {
     "Finance Notes": null,
     "Cheque Number": spec.cheque?.number ?? null,
     "Cheque Location": spec.cheque?.location ?? null,
-    Cheque: spec.cheque ? "cheque-scan.jpg" : null,
-    "Customer Cheque": null,
+    // Cheque / Customer Cheque are captured at contract stage and may be
+    // re-attached by Finance at issuance; Receipt is set with the other
+    // contract documents above.
+    Cheque: "customer-cheque-photo.jpg",
+    "Customer Cheque": "customer-cheque-copy.jpg",
     "Payment Receipt": null,
-    Receipt: null,
     FinanceReviewedBy: firstFin?.changedBy ?? null,
     FinanceReviewDate: firstFin?.changedAt ?? null,
 

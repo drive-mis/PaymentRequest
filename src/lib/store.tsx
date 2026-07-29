@@ -24,7 +24,12 @@ import { buildSeedData } from "./seedData";
 import { MOCK_CUSTOMERS, MOCK_VEHICLES } from "./mockSource";
 import { roleForPersonaName } from "./personas";
 
-const REQUESTS_KEY = "df_requests_v1";
+// Bump the version suffix whenever the record shape changes, so browsers
+// holding older data re-seed instead of rendering records missing new fields.
+// v2: Car Type became an agent-chosen New/Used dropdown (was a vehicle-master
+// body style), the program moved onto the customer record, the branch list was
+// replaced, and the contract document set changed.
+const REQUESTS_KEY = "df_requests_v2";
 const SESSION_KEY = "df_session_v1";
 
 export interface Session {
@@ -139,7 +144,7 @@ const DECISION_LABEL: Partial<Record<LifecycleAction, string>> = {
  * fixed, exact list), so reading an arbitrary field name off it needs one
  * explicit widening. Kept in one place rather than casting at each call site.
  */
-function asFieldMap(record: CarLoanRequest): Record<string, unknown> {
+export function asFieldMap(record: CarLoanRequest): Record<string, unknown> {
   return record as unknown as Record<string, unknown>;
 }
 
@@ -251,8 +256,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         APP_ID: nextAppId(requests),
         APP_DATETIME: now,
         APP_CUSTOMER_TYPE: customer.APP_CUSTOMER_TYPE,
-        APP_PROGRAM_ID: 0,
-        PROGRAM_NAME: "",
+        // Program comes with the customer record — agents never pick it.
+        APP_PROGRAM_ID: customer.APP_PROGRAM_ID,
+        PROGRAM_NAME: customer.PROGRAM_NAME,
         Branch: "",
         STATUS: "Draft",
         CREATION_DATE: null,
@@ -269,13 +275,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
         BRAND_NAME: vehicle.BRAND_NAME,
         MODEL: vehicle.MODEL,
-        "Car Type": vehicle["Car Type"],
         CHASIS_NUMBER: vehicle.CHASIS_NUMBER,
         MOTOR_NUMBER: vehicle.MOTOR_NUMBER,
         COLOR: vehicle.COLOR,
         ENGINE_SIZE: vehicle.ENGINE_SIZE,
         YEAR_OF_PRODUCT: vehicle.YEAR_OF_PRODUCT,
 
+        "Car Type": null,
         "Contract Type": null,
         "Contract Ready Status": "Not Ready",
         "Contract Signing Date": null,
@@ -289,6 +295,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         "All Customer Car Documents": null,
         Inspection: null,
         Pricing: null,
+        Invoice: null,
 
         "Operation Notes": null,
         DEVIATION: null,

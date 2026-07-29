@@ -7,11 +7,13 @@
 // onChange to receive a URL instead of a filename.
 export function FileField({
   label,
+  sublabel,
   value,
   onChange,
   required,
 }: {
   label: string;
+  sublabel?: string;
   value: string | null | undefined;
   onChange: (fileName: string) => void;
   required?: boolean;
@@ -22,16 +24,23 @@ export function FileField({
   }
 
   return (
-    <div>
-      <label className="field-label">
+    <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+      <label className="block text-sm font-semibold text-df-text mb-0.5" dir="auto">
         {label} {required && <span className="text-status-red">*</span>}
       </label>
-      <div className="flex items-center gap-3">
-        <label className="btn-secondary cursor-pointer !py-1.5">
-          {value ? "Replace file" : "Choose file"}
+      {sublabel && <p className="text-[11px] uppercase tracking-wide text-slate-400 mb-2">{sublabel}</p>}
+      <div className="flex items-center gap-2 flex-wrap">
+        <label className="btn-secondary cursor-pointer !py-1 !px-2.5 !text-xs">
+          {value ? "Replace" : "Choose file"}
           <input type="file" className="hidden" onChange={handleFile} />
         </label>
-        {value && <span className="text-xs text-slate-500 truncate max-w-[180px]" title={value}>{value}</span>}
+        {value ? (
+          <span className="text-xs text-emerald-700 truncate max-w-[150px]" title={value}>
+            ✓ {value}
+          </span>
+        ) : (
+          <span className="text-xs text-slate-400">No file</span>
+        )}
       </div>
     </div>
   );

@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useStore } from "@/lib/store";
+import { asFieldMap, useStore } from "@/lib/store";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ReadOnlyPanel } from "@/components/ReadOnlyPanel";
 import { HistoryTimeline } from "@/components/HistoryTimeline";
 import { LoadingScreen } from "@/components/Guard";
 import { formatDate, formatDateTime, formatCurrency } from "@/lib/format";
+import { CONTRACT_DOCUMENTS } from "@/lib/choices";
 import { ActionPanel } from "./ActionPanel";
 
 export default function RequestDetailPage({ params }: { params: { appId: string } }) {
@@ -64,7 +65,7 @@ export default function RequestDetailPage({ params }: { params: { appId: string 
           fields={[
             { label: "Name", value: r.CUSTOMER_NAME },
             { label: "ID Number", value: r.CUSTOMER_ID_NUMBER },
-            { label: "Type", value: r.APP_CUSTOMER_TYPE },
+            { label: "Customer Type", value: r.APP_CUSTOMER_TYPE },
             { label: "Gender", value: r.CUSTOMER_GENDER },
             { label: "Nationality", value: r.CUSTOMER_NATIONALITY },
             { label: "Title", value: r.CUSTOMER_TITLE },
@@ -85,7 +86,6 @@ export default function RequestDetailPage({ params }: { params: { appId: string 
           fields={[
             { label: "Brand", value: r.BRAND_NAME },
             { label: "Model", value: r.MODEL },
-            { label: "Type", value: r["Car Type"] },
             { label: "Chassis No.", value: r.CHASIS_NUMBER },
             { label: "Motor No.", value: r.MOTOR_NUMBER },
             { label: "Color", value: r.COLOR },
@@ -94,25 +94,55 @@ export default function RequestDetailPage({ params }: { params: { appId: string 
           ]}
         />
 
+        <ReadOnlyPanel
+          title="Program Data"
+          sourceLabel="sourced from system"
+          fields={[
+            { label: "Program Name", value: r.PROGRAM_NAME },
+            { label: "Program ID", value: r.APP_PROGRAM_ID },
+          ]}
+        />
+
         <div className="card p-5">
           <h3 className="text-sm font-semibold text-df-text mb-3">Contract &amp; Application</h3>
           <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 text-sm">
             {[
-              ["Program", r.PROGRAM_NAME],
               ["Branch", r.Branch],
+              ["Car Type", r["Car Type"]],
               ["Contract Type", r["Contract Type"]],
               ["Contract Ready Status", r["Contract Ready Status"]],
               ["Signing Date", formatDate(r["Contract Signing Date"])],
               ["Sales Agent", r.DRV_SALES_MAN],
               ["Sales Manager", r.DRV_SALES_MANAGER],
               ["Insurance Type", r["Insurance Type"]],
-              ["Receival Method", r["Receival Method"]],
+              ["Contract Receival Method", r["Receival Method"]],
             ].map(([label, value]) => (
               <div key={label as string}>
                 <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</dt>
-                <dd className="text-slate-700 mt-0.5">{(value as string) || "—"}</dd>
+                <dd className="text-slate-700 mt-0.5" dir="auto">
+                  {(value as string) || "—"}
+                </dd>
               </div>
             ))}
+          </dl>
+        </div>
+
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-df-text mb-3">Documents</h3>
+          <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 text-sm">
+            {CONTRACT_DOCUMENTS.map((doc) => {
+              const file = asFieldMap(r)[doc.field] as string | null;
+              return (
+                <div key={doc.field}>
+                  <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400" dir="auto">
+                    {doc.labelAr}
+                  </dt>
+                  <dd className={`mt-0.5 ${file ? "text-emerald-700" : "text-slate-400"}`}>
+                    {file ? `✓ ${file}` : "Not attached"}
+                  </dd>
+                </div>
+              );
+            })}
           </dl>
         </div>
 

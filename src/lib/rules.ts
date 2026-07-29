@@ -19,15 +19,13 @@ export class RuleViolation extends Error {
 
 // ---- Stage ownership (Section 5.1) — which fields a role may edit, and when.
 
-export const SECTION_4_1_CREATE_FIELDS = [
-  "APP_CUSTOMER_TYPE",
-  "APP_PROGRAM_ID",
-  "PROGRAM_NAME",
-  "Branch",
-  "CREATION_DATE",
-] as const;
+// Customer type and finance program are NOT here: both arrive with the customer
+// record from the source system and are locked, same as the rest of their
+// master data. Branch and the creation note stay agent-set.
+export const SECTION_4_1_CREATE_FIELDS = ["Branch", "CREATION_DATE"] as const;
 
 export const SECTION_4_4_CONTRACT_FIELDS = [
+  "Car Type",
   "Contract Type",
   "Contract Ready Status",
   "Contract Signing Date",
@@ -35,12 +33,16 @@ export const SECTION_4_4_CONTRACT_FIELDS = [
   "DRV_SALES_MANAGER",
   "Insurance Type",
   "Receival Method",
-  "External Contract",
+  // The nine contract-stage document uploads.
+  "Cheque",
+  "Invoice",
+  "Pricing",
+  "Receipt",
+  "Inspection",
   "Car Documents",
   "Benefciary Documents",
-  "All Customer Car Documents",
-  "Inspection",
-  "Pricing",
+  "External Contract",
+  "Customer Cheque",
 ] as const;
 
 export const SECTION_4_5_OPERATIONS_REVIEW_FIELDS = [

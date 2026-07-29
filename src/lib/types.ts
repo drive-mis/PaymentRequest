@@ -94,14 +94,15 @@ export interface CarLoanRequest {
   // 4.3 Car / Asset Information — read-only, sourced from system data
   BRAND_NAME: string;
   MODEL: string;
-  "Car Type": string;
   CHASIS_NUMBER: string;
   MOTOR_NUMBER: string;
   COLOR: string;
   ENGINE_SIZE: string;
   YEAR_OF_PRODUCT: number;
 
-  // 4.4 Contract Stage (Sales)
+  // 4.4 Contract Stage (Sales) — agent-editable
+  /** New / Used. Agent-selected, not a vehicle-master attribute. */
+  "Car Type": string | null;
   "Contract Type": string | null;
   "Contract Ready Status": string;
   "Contract Signing Date": string | null;
@@ -109,12 +110,17 @@ export interface CarLoanRequest {
   DRV_SALES_MANAGER: string | null;
   "Insurance Type": string | null;
   "Receival Method": string | null;
+  // Contract-stage document uploads (see CONTRACT_DOCUMENTS in choices.ts).
+  // "Cheque" and "Customer Cheque" are declared in section 4.8 below, since
+  // Finance also writes them at cheque issuance.
   "External Contract": string | null;
   "Car Documents": string | null;
   "Benefciary Documents": string | null;
   "All Customer Car Documents": string | null;
   Inspection: string | null;
   Pricing: string | null;
+  /** فاتورة — the only contract document with no pre-existing business field. */
+  Invoice: string | null;
 
   // 4.5 Operations Review
   "Operation Notes": string | null;

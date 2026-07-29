@@ -7,11 +7,12 @@ import { ReadOnlyPanel } from "@/components/ReadOnlyPanel";
 import { FileField } from "@/components/FileField";
 import {
   BRANCHES,
-  PROGRAMS,
+  CAR_TYPES,
   CONTRACT_TYPES,
   INSURANCE_TYPES,
   RECEIVAL_METHODS,
   CONTRACT_READY_STATUSES,
+  CONTRACT_DOCUMENTS,
   SALES_MANAGERS,
 } from "@/lib/choices";
 import type { Role } from "@/lib/types";
@@ -99,15 +100,41 @@ function LookupPicker<T>({
   );
 }
 
+function Select({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <label className="field-label">{label}</label>
+      <select className="input" dir="auto" value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export function NewContractForm({ role }: { role: Role }) {
   const router = useRouter();
   const { createRequest, performAction } = useStore();
 
   const [customer, setCustomer] = useState<CustomerRecord | null>(null);
   const [vehicle, setVehicle] = useState<VehicleRecord | null>(null);
-  const [programId, setProgramId] = useState(PROGRAMS[0].APP_PROGRAM_ID);
+
   const [branch, setBranch] = useState(BRANCHES[0]);
   const [creationNote, setCreationNote] = useState("");
+  const [carType, setCarType] = useState(CAR_TYPES[0]);
   const [contractType, setContractType] = useState(CONTRACT_TYPES[0]);
   const [contractReadyStatus, setContractReadyStatus] = useState(CONTRACT_READY_STATUSES[0]);
   const [signingDate, setSigningDate] = useState("");
@@ -115,14 +142,10 @@ export function NewContractForm({ role }: { role: Role }) {
   const [salesManager, setSalesManager] = useState(SALES_MANAGERS[0]);
   const [insuranceType, setInsuranceType] = useState(INSURANCE_TYPES[0]);
   const [receivalMethod, setReceivalMethod] = useState(RECEIVAL_METHODS[0]);
-  const [files, setFiles] = useState<Record<string, string | null>>({
-    "External Contract": null,
-    "Car Documents": null,
-    "Benefciary Documents": null,
-    "All Customer Car Documents": null,
-    Inspection: null,
-    Pricing: null,
-  });
+
+  const [documents, setDocuments] = useState<Record<string, string | null>>(
+    Object.fromEntries(CONTRACT_DOCUMENTS.map((d) => [d.field, null]))
+  );
 
   const [error, setError] = useState<string | null>(null);
   const [duplicate, setDuplicate] = useState<{ message: string; matches: string[] } | null>(null);
@@ -130,10 +153,9 @@ export function NewContractForm({ role }: { role: Role }) {
 
   function buildFields() {
     return {
-      APP_PROGRAM_ID: programId,
-      PROGRAM_NAME: PROGRAMS.find((p) => p.APP_PROGRAM_ID === programId)?.PROGRAM_NAME,
       Branch: branch,
       CREATION_DATE: creationNote || null,
+      "Car Type": carType,
       "Contract Type": contractType,
       "Contract Ready Status": contractReadyStatus,
       "Contract Signing Date": signingDate ? new Date(signingDate).toISOString() : null,
@@ -141,7 +163,7 @@ export function NewContractForm({ role }: { role: Role }) {
       DRV_SALES_MANAGER: salesManager,
       "Insurance Type": insuranceType,
       "Receival Method": receivalMethod,
-      ...files,
+      ...documents,
     };
   }
 
@@ -204,26 +226,36 @@ export function NewContractForm({ role }: { role: Role }) {
         </div>
 
         {customer && (
-          <ReadOnlyPanel
-            title="Customer Data"
-            sourceLabel="sourced from system"
-            fields={[
-              { label: "Name", value: customer.CUSTOMER_NAME },
-              { label: "ID Number", value: customer.CUSTOMER_ID_NUMBER },
-              { label: "Type", value: customer.APP_CUSTOMER_TYPE },
-              { label: "Gender", value: customer.CUSTOMER_GENDER },
-              { label: "Nationality", value: customer.CUSTOMER_NATIONALITY },
-              { label: "Title", value: customer.CUSTOMER_TITLE },
-              { label: "Class", value: customer.CUSTOMER_CLASS },
-              ...(customer.ORGANIZATION_NAME
-                ? [
-                    { label: "Organization", value: customer.ORGANIZATION_NAME },
-                    { label: "Org Type", value: customer.ORG_TYPE },
-                    { label: "Reg. Number", value: customer.ORG_REG_NUMBER },
-                  ]
-                : []),
-            ]}
-          />
+          <>
+            <ReadOnlyPanel
+              title="Customer Data"
+              sourceLabel="sourced from system"
+              fields={[
+                { label: "Name", value: customer.CUSTOMER_NAME },
+                { label: "ID Number", value: customer.CUSTOMER_ID_NUMBER },
+                { label: "Customer Type", value: customer.APP_CUSTOMER_TYPE },
+                { label: "Gender", value: customer.CUSTOMER_GENDER },
+                { label: "Nationality", value: customer.CUSTOMER_NATIONALITY },
+                { label: "Title", value: customer.CUSTOMER_TITLE },
+                { label: "Class", value: customer.CUSTOMER_CLASS },
+                ...(customer.ORGANIZATION_NAME
+                  ? [
+                      { label: "Organization", value: customer.ORGANIZATION_NAME },
+                      { label: "Org Type", value: customer.ORG_TYPE },
+                      { label: "Reg. Number", value: customer.ORG_REG_NUMBER },
+                    ]
+                  : []),
+              ]}
+            />
+            <ReadOnlyPanel
+              title="Program Data"
+              sourceLabel="sourced from system"
+              fields={[
+                { label: "Program Name", value: customer.PROGRAM_NAME },
+                { label: "Program ID", value: customer.APP_PROGRAM_ID },
+              ]}
+            />
+          </>
         )}
         {vehicle && (
           <ReadOnlyPanel
@@ -232,7 +264,6 @@ export function NewContractForm({ role }: { role: Role }) {
             fields={[
               { label: "Brand", value: vehicle.BRAND_NAME },
               { label: "Model", value: vehicle.MODEL },
-              { label: "Type", value: vehicle["Car Type"] },
               { label: "Chassis No.", value: vehicle.CHASIS_NUMBER },
               { label: "Motor No.", value: vehicle.MOTOR_NUMBER },
               { label: "Color", value: vehicle.COLOR },
@@ -244,27 +275,49 @@ export function NewContractForm({ role }: { role: Role }) {
       </div>
 
       <div className="card p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-df-text">2. Application Details</h2>
+        <h2 className="text-sm font-semibold text-df-text">2. Contract Details ({role})</h2>
         <div className="grid sm:grid-cols-3 gap-4">
+          <Select label="Branch" value={branch} options={BRANCHES} onChange={setBranch} />
+          <Select label="Car Type" value={carType} options={CAR_TYPES} onChange={setCarType} />
+          <Select label="Contract Type" value={contractType} options={CONTRACT_TYPES} onChange={setContractType} />
+          <Select
+            label="Insurance Type"
+            value={insuranceType}
+            options={INSURANCE_TYPES}
+            onChange={setInsuranceType}
+          />
+          <Select
+            label="Contract Receival Method"
+            value={receivalMethod}
+            options={RECEIVAL_METHODS}
+            onChange={setReceivalMethod}
+          />
+          <Select
+            label="Contract Ready Status"
+            value={contractReadyStatus}
+            options={CONTRACT_READY_STATUSES}
+            onChange={setContractReadyStatus}
+          />
           <div>
-            <label className="field-label">Finance Program</label>
-            <select className="input" value={programId} onChange={(e) => setProgramId(Number(e.target.value))}>
-              {PROGRAMS.map((p) => (
-                <option key={p.APP_PROGRAM_ID} value={p.APP_PROGRAM_ID}>
-                  {p.PROGRAM_NAME}
-                </option>
-              ))}
-            </select>
+            <label className="field-label">Contract Signing Date</label>
+            <input type="date" className="input" value={signingDate} onChange={(e) => setSigningDate(e.target.value)} />
           </div>
           <div>
-            <label className="field-label">Branch</label>
-            <select className="input" value={branch} onChange={(e) => setBranch(e.target.value)}>
-              {BRANCHES.map((b) => (
-                <option key={b}>{b}</option>
-              ))}
-            </select>
+            <label className="field-label">Sales Agent</label>
+            <input
+              className="input"
+              value={salesMan}
+              onChange={(e) => setSalesMan(e.target.value)}
+              placeholder="Agent name"
+            />
           </div>
-          <div>
+          <Select
+            label="Sales Manager"
+            value={salesManager}
+            options={SALES_MANAGERS}
+            onChange={setSalesManager}
+          />
+          <div className="sm:col-span-3">
             <label className="field-label">Creation Note</label>
             <input
               className="input"
@@ -277,69 +330,18 @@ export function NewContractForm({ role }: { role: Role }) {
       </div>
 
       <div className="card p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-df-text">3. Contract Stage ({role})</h2>
-        <div className="grid sm:grid-cols-3 gap-4">
-          <div>
-            <label className="field-label">Contract Type</label>
-            <select className="input" value={contractType} onChange={(e) => setContractType(e.target.value)}>
-              {CONTRACT_TYPES.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="field-label">Contract Ready Status</label>
-            <select
-              className="input"
-              value={contractReadyStatus}
-              onChange={(e) => setContractReadyStatus(e.target.value)}
-            >
-              {CONTRACT_READY_STATUSES.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="field-label">Contract Signing Date</label>
-            <input type="date" className="input" value={signingDate} onChange={(e) => setSigningDate(e.target.value)} />
-          </div>
-          <div>
-            <label className="field-label">Sales Agent</label>
-            <input className="input" value={salesMan} onChange={(e) => setSalesMan(e.target.value)} placeholder="Agent name" />
-          </div>
-          <div>
-            <label className="field-label">Sales Manager</label>
-            <select className="input" value={salesManager} onChange={(e) => setSalesManager(e.target.value)}>
-              {SALES_MANAGERS.map((m) => (
-                <option key={m}>{m}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="field-label">Insurance Type</label>
-            <select className="input" value={insuranceType} onChange={(e) => setInsuranceType(e.target.value)}>
-              {INSURANCE_TYPES.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="field-label">Receival Method</label>
-            <select className="input" value={receivalMethod} onChange={(e) => setReceivalMethod(e.target.value)}>
-              {RECEIVAL_METHODS.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
-          </div>
+        <div>
+          <h2 className="text-sm font-semibold text-df-text">3. Documents</h2>
+          <p className="text-xs text-slate-500 mt-1">Attach the contract package documents.</p>
         </div>
-
-        <div className="grid sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100">
-          {Object.keys(files).map((key) => (
+        <div className="grid sm:grid-cols-3 gap-3">
+          {CONTRACT_DOCUMENTS.map((doc) => (
             <FileField
-              key={key}
-              label={key}
-              value={files[key]}
-              onChange={(name) => setFiles((f) => ({ ...f, [key]: name }))}
+              key={doc.field}
+              label={doc.labelAr}
+              sublabel={doc.labelEn}
+              value={documents[doc.field]}
+              onChange={(name) => setDocuments((d) => ({ ...d, [doc.field]: name }))}
             />
           ))}
         </div>

@@ -2,9 +2,18 @@
 
 import { useState } from "react";
 import { FileField } from "@/components/FileField";
-import { BANKS } from "@/lib/choices";
+import {
+  BANKS,
+  BRANCHES,
+  CAR_TYPES,
+  CONTRACT_TYPES,
+  INSURANCE_TYPES,
+  RECEIVAL_METHODS,
+  CONTRACT_READY_STATUSES,
+  CONTRACT_DOCUMENTS,
+} from "@/lib/choices";
 import type { CarLoanRequest, LifecycleAction, Role } from "@/lib/types";
-import { DuplicateWarning, useStore } from "@/lib/store";
+import { asFieldMap, DuplicateWarning, useStore } from "@/lib/store";
 import { roleForPersonaName } from "@/lib/personas";
 
 function ReasonBar({
@@ -101,7 +110,23 @@ export function ActionPanel({
   const appId = record.APP_ID;
   const status = record.STATUS;
 
-  const [contract, setContract] = useState({ DRV_SALES_MAN: record.DRV_SALES_MAN ?? "" });
+  // Everything Sales/Operations may fix on a Draft or Returned contract —
+  // notably the document set, since "missing documents" is the most common
+  // reason Operations returns a contract.
+  const [contract, setContract] = useState({
+    DRV_SALES_MAN: record.DRV_SALES_MAN ?? "",
+    Branch: record.Branch || BRANCHES[0],
+    "Car Type": record["Car Type"] ?? CAR_TYPES[0],
+    "Contract Type": record["Contract Type"] ?? CONTRACT_TYPES[0],
+    "Insurance Type": record["Insurance Type"] ?? INSURANCE_TYPES[0],
+    "Receival Method": record["Receival Method"] ?? RECEIVAL_METHODS[0],
+    "Contract Ready Status": record["Contract Ready Status"] ?? CONTRACT_READY_STATUSES[0],
+  });
+  const [contractDocs, setContractDocs] = useState<Record<string, string | null>>(
+    Object.fromEntries(
+      CONTRACT_DOCUMENTS.map((d) => [d.field, asFieldMap(record)[d.field] as string | null])
+    )
+  );
   const [opsNotes, setOpsNotes] = useState({
     "Operation Notes": record["Operation Notes"] ?? "",
     DEVIATION: record.DEVIATION ?? "",
@@ -210,18 +235,69 @@ export function ActionPanel({
       )}
 
       {canEditContract && (
-        <div className="card p-4 space-y-3">
+        <div className="card p-4 space-y-4">
           <h3 className="text-sm font-semibold">Edit &amp; Submit Contract</h3>
-          <div>
-            <label className="field-label">Sales Agent</label>
-            <input
-              className="input"
-              value={contract.DRV_SALES_MAN}
-              onChange={(e) => setContract({ DRV_SALES_MAN: e.target.value })}
-            />
+
+          <div className="grid gap-3">
+            <div>
+              <label className="field-label">Sales Agent</label>
+              <input
+                className="input"
+                value={contract.DRV_SALES_MAN}
+                onChange={(e) => setContract((c) => ({ ...c, DRV_SALES_MAN: e.target.value }))}
+              />
+            </div>
+            {(
+              [
+                ["Branch", BRANCHES],
+                ["Car Type", CAR_TYPES],
+                ["Contract Type", CONTRACT_TYPES],
+                ["Insurance Type", INSURANCE_TYPES],
+                ["Receival Method", RECEIVAL_METHODS],
+                ["Contract Ready Status", CONTRACT_READY_STATUSES],
+              ] as const
+            ).map(([field, options]) => (
+              <div key={field}>
+                <label className="field-label">
+                  {field === "Receival Method" ? "Contract Receival Method" : field}
+                </label>
+                <select
+                  className="input"
+                  dir="auto"
+                  value={(contract as Record<string, string>)[field]}
+                  onChange={(e) => setContract((c) => ({ ...c, [field]: e.target.value }))}
+                >
+                  {options.map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
           </div>
+
+          <div className="border-t border-slate-100 pt-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Documents</p>
+            <div className="grid gap-2">
+              {CONTRACT_DOCUMENTS.map((doc) => (
+                <FileField
+                  key={doc.field}
+                  label={doc.labelAr}
+                  sublabel={doc.labelEn}
+                  value={contractDocs[doc.field]}
+                  onChange={(name) => setContractDocs((d) => ({ ...d, [doc.field]: name }))}
+                />
+              ))}
+            </div>
+          </div>
+
           <div className="flex flex-wrap gap-2">
-            <button className="btn-secondary" disabled={busy} onClick={() => run(() => patchRequest(appId, contract))}>
+            <button
+              className="btn-secondary"
+              disabled={busy}
+              onClick={() => run(() => patchRequest(appId, { ...contract, ...contractDocs }))}
+            >
               Save Changes
             </button>
             <button
@@ -229,7 +305,7 @@ export function ActionPanel({
               disabled={busy}
               onClick={() =>
                 run(() => {
-                  patchRequest(appId, contract);
+                  patchRequest(appId, { ...contract, ...contractDocs });
                   act("SUBMIT_FOR_OPERATIONS_REVIEW");
                 })
               }
