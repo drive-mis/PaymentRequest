@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { findCustomers, findVehicles, type CustomerRecord, type VehicleRecord } from "@/lib/mockSource";
-import { ReadOnlyPanel } from "@/components/ReadOnlyPanel";
+import { CustomerPanel, ProgramPanel, VehiclePanel } from "@/components/SystemDataPanels";
 import { FileField } from "@/components/FileField";
 import {
   BRANCHES,
@@ -225,53 +225,19 @@ export function NewContractForm({ role }: { role: Role }) {
           />
         </div>
 
+        {!customer && !vehicle && (
+          <p className="text-xs text-slate-400">
+            Select a customer and a vehicle above — their full details will load here from system records and stay
+            read-only.
+          </p>
+        )}
         {customer && (
           <>
-            <ReadOnlyPanel
-              title="Customer Data"
-              sourceLabel="sourced from system"
-              fields={[
-                { label: "Name", value: customer.CUSTOMER_NAME },
-                { label: "ID Number", value: customer.CUSTOMER_ID_NUMBER },
-                { label: "Customer Type", value: customer.APP_CUSTOMER_TYPE },
-                { label: "Gender", value: customer.CUSTOMER_GENDER },
-                { label: "Nationality", value: customer.CUSTOMER_NATIONALITY },
-                { label: "Title", value: customer.CUSTOMER_TITLE },
-                { label: "Class", value: customer.CUSTOMER_CLASS },
-                ...(customer.ORGANIZATION_NAME
-                  ? [
-                      { label: "Organization", value: customer.ORGANIZATION_NAME },
-                      { label: "Org Type", value: customer.ORG_TYPE },
-                      { label: "Reg. Number", value: customer.ORG_REG_NUMBER },
-                    ]
-                  : []),
-              ]}
-            />
-            <ReadOnlyPanel
-              title="Program Data"
-              sourceLabel="sourced from system"
-              fields={[
-                { label: "Program Name", value: customer.PROGRAM_NAME },
-                { label: "Program ID", value: customer.APP_PROGRAM_ID },
-              ]}
-            />
+            <CustomerPanel data={customer} />
+            <ProgramPanel data={customer} />
           </>
         )}
-        {vehicle && (
-          <ReadOnlyPanel
-            title="Vehicle Data"
-            sourceLabel="sourced from system"
-            fields={[
-              { label: "Brand", value: vehicle.BRAND_NAME },
-              { label: "Model", value: vehicle.MODEL },
-              { label: "Chassis No.", value: vehicle.CHASIS_NUMBER },
-              { label: "Motor No.", value: vehicle.MOTOR_NUMBER },
-              { label: "Color", value: vehicle.COLOR },
-              { label: "Engine Size", value: vehicle.ENGINE_SIZE },
-              { label: "Year", value: vehicle.YEAR_OF_PRODUCT },
-            ]}
-          />
-        )}
+        {vehicle && <VehiclePanel data={vehicle} />}
       </div>
 
       <div className="card p-5 space-y-4">

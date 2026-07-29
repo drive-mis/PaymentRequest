@@ -53,8 +53,27 @@ export class DuplicateWarning extends Error {
   }
 }
 
+/**
+ * Which records the signed-in user is allowed to see.
+ *
+ * Sales agents are scoped to their own book of business — a request counts as
+ * theirs if they created it or are the named sales agent on it. Operations and
+ * Finance keep full visibility, since they review work that originates with
+ * other people and cannot do their job without it.
+ */
+export function visibleTo(requests: CarLoanRequest[], session: Session | null): CarLoanRequest[] {
+  if (!session) return [];
+  if (session.role !== "Sales") return requests;
+  return requests.filter(
+    (r) => r.CreatedBy === session.name || r.DRV_SALES_MAN === session.name
+  );
+}
+
 interface StoreValue {
   hydrated: boolean;
+  /** Every record in storage. Prefer `requests` unless you truly need all. */
+  allRequests: CarLoanRequest[];
+  /** Records the signed-in user may see (see visibleTo). */
   requests: CarLoanRequest[];
   session: Session | null;
   signIn: (name: string) => void;
@@ -198,9 +217,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     persist(seeded);
   }, [persist]);
 
+  // Scoped on purpose: a Sales agent opening another agent's request by URL
+  // gets nothing back, so the detail page renders its not-found state rather
+  // than leaking the record.
   const getRequest = useCallback(
-    (appId: string) => requests.find((r) => r.APP_ID === appId),
-    [requests]
+    (appId: string) => visibleTo(requests, session).find((r) => r.APP_ID === appId),
+    [requests, session]
   );
 
   const createRequest = useCallback(
@@ -363,7 +385,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const patchRequest = useCallback(
     (appId: string, fields: Record<string, unknown>) => {
       if (!session) throw new RuleViolation("Not signed in.");
-      const record = requests.find((r) => r.APP_ID === appId);
+      // Looked up through the visibility scope, so a Sales agent cannot mutate
+      // a request belonging to another agent even by calling this directly.
+      const record = visibleTo(requests, session).find((r) => r.APP_ID === appId);
       if (!record) throw new RuleViolation("Request not found.");
       if (record.IsLocked) {
         throw new RuleViolation("This request is locked and can no longer be edited.");
@@ -411,7 +435,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const performAction = useCallback(
     (appId: string, input: ActionInput) => {
       if (!session) throw new RuleViolation("Not signed in.");
-      const record = requests.find((r) => r.APP_ID === appId);
+      // Looked up through the visibility scope, so a Sales agent cannot mutate
+      // a request belonging to another agent even by calling this directly.
+      const record = visibleTo(requests, session).find((r) => r.APP_ID === appId);
       if (!record) throw new RuleViolation("Request not found.");
 
       const { action, reason, fields, acknowledgeSimilar } = input;
@@ -552,7 +578,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<StoreValue>(
     () => ({
       hydrated,
-      requests,
+      allRequests: requests,
+      requests: visibleTo(requests, session),
       session,
       signIn,
       signOut,

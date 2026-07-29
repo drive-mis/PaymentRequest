@@ -7,17 +7,22 @@ import { LoadingScreen } from "@/components/Guard";
 import { ReportingCharts } from "./ReportingCharts";
 
 export default function ReportingPage() {
-  const { hydrated, requests } = useStore();
-  if (!hydrated) return <LoadingScreen />;
+  const { hydrated, requests, session } = useStore();
+  if (!hydrated || !session) return <LoadingScreen />;
 
+  // `requests` is already scoped to what this role may see, so a Sales agent's
+  // reporting covers their own book rather than the whole portfolio.
   const data = computeReports(requests);
+  const isSales = session.role === "Sales";
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-df-text">Reporting &amp; Monitoring</h1>
         <p className="text-sm text-slate-500 mt-1">
-          Portfolio-wide metrics across Sales, Operations, and Finance.
+          {isSales
+            ? "Metrics across the requests you own."
+            : "Portfolio-wide metrics across Sales, Operations, and Finance."}
         </p>
       </div>
 

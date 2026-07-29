@@ -72,7 +72,9 @@ export default function DashboardPage() {
       </div>
 
       <div>
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Company-wide KPIs</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">
+          {role === "Sales" ? "My Portfolio" : "Company-wide KPIs"}
+        </h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiTile label="Total Requests" value={total} accent="purple" />
           <KpiTile label="Completion Rate" value={`${completionRate}%`} sub={`${delivered} delivered`} accent="teal" />

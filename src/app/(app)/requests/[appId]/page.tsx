@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { asFieldMap, useStore } from "@/lib/store";
 import { StatusBadge } from "@/components/StatusBadge";
-import { ReadOnlyPanel } from "@/components/ReadOnlyPanel";
+import { CustomerPanel, ProgramPanel, VehiclePanel } from "@/components/SystemDataPanels";
 import { HistoryTimeline } from "@/components/HistoryTimeline";
 import { LoadingScreen } from "@/components/Guard";
 import { formatDate, formatDateTime, formatCurrency } from "@/lib/format";
@@ -59,49 +59,9 @@ export default function RequestDetailPage({ params }: { params: { appId: string 
           </div>
         )}
 
-        <ReadOnlyPanel
-          title="Customer Data"
-          sourceLabel="sourced from system"
-          fields={[
-            { label: "Name", value: r.CUSTOMER_NAME },
-            { label: "ID Number", value: r.CUSTOMER_ID_NUMBER },
-            { label: "Customer Type", value: r.APP_CUSTOMER_TYPE },
-            { label: "Gender", value: r.CUSTOMER_GENDER },
-            { label: "Nationality", value: r.CUSTOMER_NATIONALITY },
-            { label: "Title", value: r.CUSTOMER_TITLE },
-            { label: "Class", value: r.CUSTOMER_CLASS },
-            ...(r.ORGANIZATION_NAME
-              ? [
-                  { label: "Organization", value: r.ORGANIZATION_NAME },
-                  { label: "Org Type", value: r.ORG_TYPE },
-                  { label: "Reg. Number", value: r.ORG_REG_NUMBER },
-                ]
-              : []),
-          ]}
-        />
-
-        <ReadOnlyPanel
-          title="Vehicle Data"
-          sourceLabel="sourced from system"
-          fields={[
-            { label: "Brand", value: r.BRAND_NAME },
-            { label: "Model", value: r.MODEL },
-            { label: "Chassis No.", value: r.CHASIS_NUMBER },
-            { label: "Motor No.", value: r.MOTOR_NUMBER },
-            { label: "Color", value: r.COLOR },
-            { label: "Engine Size", value: r.ENGINE_SIZE },
-            { label: "Year", value: r.YEAR_OF_PRODUCT },
-          ]}
-        />
-
-        <ReadOnlyPanel
-          title="Program Data"
-          sourceLabel="sourced from system"
-          fields={[
-            { label: "Program Name", value: r.PROGRAM_NAME },
-            { label: "Program ID", value: r.APP_PROGRAM_ID },
-          ]}
-        />
+        <CustomerPanel data={r} />
+        <VehiclePanel data={r} />
+        <ProgramPanel data={r} />
 
         <div className="card p-5">
           <h3 className="text-sm font-semibold text-df-text mb-3">Contract &amp; Application</h3>

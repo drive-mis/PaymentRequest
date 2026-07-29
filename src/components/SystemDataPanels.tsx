@@ -1,0 +1,87 @@
+import { ReadOnlyPanel } from "./ReadOnlyPanel";
+
+// One definition of the system-sourced panels, shared by the New Contract form
+// and the Request Detail view so the two can never drift apart. Both a raw
+// source-system record and a saved CarLoanRequest satisfy these shapes, since
+// the request row carries the same field names.
+
+export interface CustomerLike {
+  CUSTOMER_NAME: string;
+  CUSTOMER_ID_NUMBER: string;
+  APP_CUSTOMER_TYPE: string;
+  CUSTOMER_GENDER?: string | null;
+  CUSTOMER_NATIONALITY?: string | null;
+  CUSTOMER_TITLE?: string | null;
+  CUSTOMER_CLASS?: string | null;
+  ORGANIZATION_NAME?: string | null;
+  ORG_TYPE?: string | null;
+  ORG_REG_NUMBER?: string | null;
+}
+
+export interface VehicleLike {
+  BRAND_NAME: string;
+  MODEL: string;
+  CHASIS_NUMBER: string;
+  MOTOR_NUMBER: string;
+  COLOR: string;
+  ENGINE_SIZE: string;
+  YEAR_OF_PRODUCT: number;
+}
+
+export interface ProgramLike {
+  PROGRAM_NAME: string;
+  APP_PROGRAM_ID: number;
+}
+
+export function CustomerPanel({ data }: { data: CustomerLike }) {
+  return (
+    <ReadOnlyPanel
+      title="Customer Data"
+      sourceLabel="sourced from system · read-only"
+      fields={[
+        { label: "Customer Name", value: data.CUSTOMER_NAME },
+        { label: "ID Number", value: data.CUSTOMER_ID_NUMBER },
+        { label: "Customer Type", value: data.APP_CUSTOMER_TYPE },
+        { label: "Title", value: data.CUSTOMER_TITLE },
+        { label: "Gender", value: data.CUSTOMER_GENDER },
+        { label: "Nationality", value: data.CUSTOMER_NATIONALITY },
+        { label: "Customer Class", value: data.CUSTOMER_CLASS },
+        { label: "Organization Name", value: data.ORGANIZATION_NAME },
+        { label: "Organization Type", value: data.ORG_TYPE },
+        { label: "Org. Reg. Number", value: data.ORG_REG_NUMBER },
+      ]}
+    />
+  );
+}
+
+export function VehiclePanel({ data }: { data: VehicleLike }) {
+  return (
+    <ReadOnlyPanel
+      title="Vehicle Data"
+      sourceLabel="sourced from system · read-only"
+      fields={[
+        { label: "Brand Name", value: data.BRAND_NAME },
+        { label: "Model", value: data.MODEL },
+        { label: "Chassis Number", value: data.CHASIS_NUMBER },
+        { label: "Motor Number", value: data.MOTOR_NUMBER },
+        { label: "Color", value: data.COLOR },
+        { label: "Engine Size", value: data.ENGINE_SIZE },
+        { label: "Year of Product", value: data.YEAR_OF_PRODUCT },
+      ]}
+    />
+  );
+}
+
+export function ProgramPanel({ data }: { data: ProgramLike }) {
+  return (
+    <ReadOnlyPanel
+      title="Program Data"
+      sourceLabel="sourced from system · read-only"
+      fields={[
+        { label: "Program Name", value: data.PROGRAM_NAME },
+        { label: "Program ID", value: data.APP_PROGRAM_ID },
+      ]}
+      columns={2}
+    />
+  );
+}
