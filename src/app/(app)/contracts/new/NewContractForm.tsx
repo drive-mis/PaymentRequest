@@ -225,19 +225,14 @@ export function NewContractForm({ role }: { role: Role }) {
           />
         </div>
 
-        {!customer && !vehicle && (
-          <p className="text-xs text-slate-400">
-            Select a customer and a vehicle above — their full details will load here from system records and stay
-            read-only.
-          </p>
-        )}
-        {customer && (
-          <>
-            <CustomerPanel data={customer} />
-            <ProgramPanel data={customer} />
-          </>
-        )}
-        {vehicle && <VehiclePanel data={vehicle} />}
+        <p className="text-xs text-slate-400">
+          The fields below are filled in automatically from system records once you select a customer and a vehicle
+          above. They are read-only and cannot be edited by any role.
+        </p>
+
+        <CustomerPanel data={customer} />
+        <ProgramPanel data={customer} />
+        <VehiclePanel data={vehicle} />
       </div>
 
       <div className="card p-5 space-y-4">

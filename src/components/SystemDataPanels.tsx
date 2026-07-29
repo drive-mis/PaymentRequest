@@ -4,6 +4,10 @@ import { ReadOnlyPanel } from "./ReadOnlyPanel";
 // and the Request Detail view so the two can never drift apart. Both a raw
 // source-system record and a saved CarLoanRequest satisfy these shapes, since
 // the request row carries the same field names.
+//
+// `data` may be null: the New Contract form renders these panels before a
+// record has been picked, so the agent can see up-front exactly which fields
+// the system will fill in (all showing "—" until a selection is made).
 
 export interface CustomerLike {
   CUSTOMER_NAME: string;
@@ -33,53 +37,55 @@ export interface ProgramLike {
   APP_PROGRAM_ID: number;
 }
 
-export function CustomerPanel({ data }: { data: CustomerLike }) {
+const AWAITING = "awaiting selection";
+
+export function CustomerPanel({ data }: { data: CustomerLike | null }) {
   return (
     <ReadOnlyPanel
       title="Customer Data"
-      sourceLabel="sourced from system · read-only"
+      sourceLabel={data ? "sourced from system · read-only" : AWAITING}
       fields={[
-        { label: "Customer Name", value: data.CUSTOMER_NAME },
-        { label: "ID Number", value: data.CUSTOMER_ID_NUMBER },
-        { label: "Customer Type", value: data.APP_CUSTOMER_TYPE },
-        { label: "Title", value: data.CUSTOMER_TITLE },
-        { label: "Gender", value: data.CUSTOMER_GENDER },
-        { label: "Nationality", value: data.CUSTOMER_NATIONALITY },
-        { label: "Customer Class", value: data.CUSTOMER_CLASS },
-        { label: "Organization Name", value: data.ORGANIZATION_NAME },
-        { label: "Organization Type", value: data.ORG_TYPE },
-        { label: "Org. Reg. Number", value: data.ORG_REG_NUMBER },
+        { label: "Customer Name", value: data?.CUSTOMER_NAME },
+        { label: "ID Number", value: data?.CUSTOMER_ID_NUMBER },
+        { label: "Customer Type", value: data?.APP_CUSTOMER_TYPE },
+        { label: "Title", value: data?.CUSTOMER_TITLE },
+        { label: "Gender", value: data?.CUSTOMER_GENDER },
+        { label: "Nationality", value: data?.CUSTOMER_NATIONALITY },
+        { label: "Customer Class", value: data?.CUSTOMER_CLASS },
+        { label: "Organization Name", value: data?.ORGANIZATION_NAME },
+        { label: "Organization Type", value: data?.ORG_TYPE },
+        { label: "Org. Reg. Number", value: data?.ORG_REG_NUMBER },
       ]}
     />
   );
 }
 
-export function VehiclePanel({ data }: { data: VehicleLike }) {
+export function VehiclePanel({ data }: { data: VehicleLike | null }) {
   return (
     <ReadOnlyPanel
       title="Vehicle Data"
-      sourceLabel="sourced from system · read-only"
+      sourceLabel={data ? "sourced from system · read-only" : AWAITING}
       fields={[
-        { label: "Brand Name", value: data.BRAND_NAME },
-        { label: "Model", value: data.MODEL },
-        { label: "Chassis Number", value: data.CHASIS_NUMBER },
-        { label: "Motor Number", value: data.MOTOR_NUMBER },
-        { label: "Color", value: data.COLOR },
-        { label: "Engine Size", value: data.ENGINE_SIZE },
-        { label: "Year of Product", value: data.YEAR_OF_PRODUCT },
+        { label: "Brand Name", value: data?.BRAND_NAME },
+        { label: "Model", value: data?.MODEL },
+        { label: "Chassis Number", value: data?.CHASIS_NUMBER },
+        { label: "Motor Number", value: data?.MOTOR_NUMBER },
+        { label: "Color", value: data?.COLOR },
+        { label: "Engine Size", value: data?.ENGINE_SIZE },
+        { label: "Year of Product", value: data?.YEAR_OF_PRODUCT },
       ]}
     />
   );
 }
 
-export function ProgramPanel({ data }: { data: ProgramLike }) {
+export function ProgramPanel({ data }: { data: ProgramLike | null }) {
   return (
     <ReadOnlyPanel
       title="Program Data"
-      sourceLabel="sourced from system · read-only"
+      sourceLabel={data ? "sourced from system · read-only" : AWAITING}
       fields={[
-        { label: "Program Name", value: data.PROGRAM_NAME },
-        { label: "Program ID", value: data.APP_PROGRAM_ID },
+        { label: "Program Name", value: data?.PROGRAM_NAME },
+        { label: "Program ID", value: data?.APP_PROGRAM_ID },
       ]}
       columns={2}
     />
