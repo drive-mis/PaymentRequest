@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { findCustomers, findVehicles, type CustomerRecord, type VehicleRecord } from "@/lib/mockSource";
+import Link from "next/link";
 import { CustomerPanel, ProgramPanel, VehiclePanel } from "@/components/SystemDataPanels";
 import { FileField } from "@/components/FileField";
 import {
@@ -15,90 +15,8 @@ import {
   CONTRACT_DOCUMENTS,
   SALES_MANAGERS,
 } from "@/lib/choices";
-import type { Role } from "@/lib/types";
+import type { PendingApplication, Role } from "@/lib/types";
 import { DuplicateWarning, useStore } from "@/lib/store";
-
-function LookupPicker<T>({
-  label,
-  placeholder,
-  search,
-  renderOption,
-  onPick,
-  onClear,
-  selectedLabel,
-}: {
-  label: string;
-  placeholder: string;
-  search: (q: string) => T[];
-  renderOption: (item: T) => { title: string; subtitle: string };
-  onPick: (item: T) => void;
-  onClear: () => void;
-  selectedLabel: string | null;
-}) {
-  const [q, setQ] = useState("");
-  const [open, setOpen] = useState(false);
-  const results = q.trim() ? search(q) : [];
-
-  if (selectedLabel) {
-    return (
-      <div>
-        <label className="field-label">{label}</label>
-        <div className="flex items-center justify-between rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm">
-          <span className="font-medium text-emerald-900">{selectedLabel}</span>
-          <button
-            type="button"
-            className="text-xs text-emerald-700 underline"
-            onClick={() => {
-              onClear();
-              setQ("");
-              setOpen(false);
-            }}
-          >
-            Change
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative">
-      <label className="field-label">{label}</label>
-      <input
-        className="input"
-        placeholder={placeholder}
-        value={q}
-        onChange={(e) => {
-          setQ(e.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => q && setOpen(true)}
-      />
-      {open && q.trim() && (
-        <div className="absolute z-20 mt-1 w-full card max-h-64 overflow-auto p-1">
-          {results.length === 0 && <div className="px-3 py-2 text-sm text-slate-400">No matches</div>}
-          {results.map((item, i) => {
-            const { title, subtitle } = renderOption(item);
-            return (
-              <button
-                type="button"
-                key={i}
-                className="w-full text-left px-3 py-2 rounded-lg hover:bg-df-indigo/5 text-sm"
-                onClick={() => {
-                  onPick(item);
-                  setOpen(false);
-                }}
-              >
-                <div className="font-medium text-df-text">{title}</div>
-                <div className="text-xs text-slate-400">{subtitle}</div>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function Select({
   label,
@@ -127,10 +45,10 @@ function Select({
 
 export function NewContractForm({ role }: { role: Role }) {
   const router = useRouter();
-  const { createRequest, performAction } = useStore();
+  const { createRequest, performAction, openAssignments } = useStore();
 
-  const [customer, setCustomer] = useState<CustomerRecord | null>(null);
-  const [vehicle, setVehicle] = useState<VehicleRecord | null>(null);
+  const [selectedId, setSelectedId] = useState<string>("");
+  const [search, setSearch] = useState("");
 
   const [branch, setBranch] = useState(BRANCHES[0]);
   const [creationNote, setCreationNote] = useState("");
@@ -138,7 +56,6 @@ export function NewContractForm({ role }: { role: Role }) {
   const [contractType, setContractType] = useState(CONTRACT_TYPES[0]);
   const [contractReadyStatus, setContractReadyStatus] = useState(CONTRACT_READY_STATUSES[0]);
   const [signingDate, setSigningDate] = useState("");
-  const [salesMan, setSalesMan] = useState("");
   const [salesManager, setSalesManager] = useState(SALES_MANAGERS[0]);
   const [insuranceType, setInsuranceType] = useState(INSURANCE_TYPES[0]);
   const [receivalMethod, setReceivalMethod] = useState(RECEIVAL_METHODS[0]);
@@ -151,6 +68,19 @@ export function NewContractForm({ role }: { role: Role }) {
   const [duplicate, setDuplicate] = useState<{ message: string; matches: string[] } | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const selected: PendingApplication | null =
+    openAssignments.find((a) => a.ASSIGNMENT_ID === selectedId) ?? null;
+
+  const term = search.trim().toLowerCase();
+  const filtered = term
+    ? openAssignments.filter((a) =>
+        [a.CUSTOMER_NAME, a.CUSTOMER_ID_NUMBER, a.BRAND_NAME, a.MODEL, a.CHASIS_NUMBER, a.DRV_SALES_MAN]
+          .join(" ")
+          .toLowerCase()
+          .includes(term)
+      )
+    : openAssignments;
+
   function buildFields() {
     return {
       Branch: branch,
@@ -159,7 +89,6 @@ export function NewContractForm({ role }: { role: Role }) {
       "Contract Type": contractType,
       "Contract Ready Status": contractReadyStatus,
       "Contract Signing Date": signingDate ? new Date(signingDate).toISOString() : null,
-      DRV_SALES_MAN: salesMan,
       DRV_SALES_MANAGER: salesManager,
       "Insurance Type": insuranceType,
       "Receival Method": receivalMethod,
@@ -169,19 +98,17 @@ export function NewContractForm({ role }: { role: Role }) {
 
   function submit(mode: "draft" | "submit") {
     setError(null);
-    if (!customer || !vehicle) {
-      setError("Select both a customer and a vehicle before saving.");
+    if (!selected) {
+      setError("Select the application you are raising this contract for.");
       return;
     }
     setBusy(true);
     try {
       const created = createRequest({
-        CUSTOMER_ID_NUMBER: customer.CUSTOMER_ID_NUMBER,
-        CHASIS_NUMBER: vehicle.CHASIS_NUMBER,
+        ASSIGNMENT_ID: selected.ASSIGNMENT_ID,
         fields: buildFields(),
         acknowledgeSimilar: !!duplicate,
       });
-
       if (mode === "submit") {
         performAction(created.APP_ID, { action: "SUBMIT_FOR_OPERATIONS_REVIEW" });
       }
@@ -200,39 +127,85 @@ export function NewContractForm({ role }: { role: Role }) {
     }
   }
 
+  if (openAssignments.length === 0) {
+    return (
+      <div className="card p-8 text-center space-y-2">
+        <h2 className="text-sm font-semibold text-df-text">No applications assigned to you</h2>
+        <p className="text-sm text-slate-500">
+          {role === "Sales"
+            ? "Contracts are raised against applications assigned to you by Admin. Once data is uploaded with your name as the sales agent, it will appear here."
+            : "No pending applications are loaded. Admin uploads the customer, vehicle and program data."}
+        </p>
+        {role === "Operations" && (
+          <Link href="/admin/data" className="btn-ghost text-xs">
+            Application Data →
+          </Link>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="card p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-df-text">1. Identify Customer &amp; Vehicle</h2>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <LookupPicker<CustomerRecord>
-            label="Customer (search by name or ID)"
-            placeholder="e.g. Ahmed Samir or 2900101..."
-            search={findCustomers}
-            onPick={setCustomer}
-            onClear={() => setCustomer(null)}
-            selectedLabel={customer ? `${customer.CUSTOMER_NAME} · ${customer.CUSTOMER_ID_NUMBER}` : null}
-            renderOption={(c) => ({ title: c.CUSTOMER_NAME, subtitle: c.CUSTOMER_ID_NUMBER })}
+        <div>
+          <h2 className="text-sm font-semibold text-df-text">
+            1. Select the Application {role === "Sales" ? "assigned to you" : "to contract"}
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            {openAssignments.length} application{openAssignments.length === 1 ? "" : "s"} awaiting a contract. Customer,
+            vehicle and program details come from this record and cannot be edited.
+          </p>
+        </div>
+
+        {openAssignments.length > 5 && (
+          <input
+            className="input"
+            placeholder="Filter by customer, ID, vehicle or chassis…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
-          <LookupPicker<VehicleRecord>
-            label="Vehicle (search by chassis, brand, or model)"
-            placeholder="e.g. Corolla or WBA3A5..."
-            search={findVehicles}
-            onPick={setVehicle}
-            onClear={() => setVehicle(null)}
-            selectedLabel={vehicle ? `${vehicle.BRAND_NAME} ${vehicle.MODEL} · ${vehicle.CHASIS_NUMBER}` : null}
-            renderOption={(v) => ({ title: `${v.BRAND_NAME} ${v.MODEL}`, subtitle: v.CHASIS_NUMBER })}
-          />
+        )}
+
+        <div className="grid gap-2 max-h-72 overflow-auto">
+          {filtered.length === 0 && <p className="text-sm text-slate-400">No applications match that filter.</p>}
+          {filtered.map((a) => {
+            const isSelected = a.ASSIGNMENT_ID === selectedId;
+            return (
+              <button
+                key={a.ASSIGNMENT_ID}
+                type="button"
+                onClick={() => setSelectedId(a.ASSIGNMENT_ID)}
+                className={`w-full text-left rounded-lg border px-3.5 py-2.5 transition ${
+                  isSelected
+                    ? "border-df-indigo bg-df-indigo/5 ring-1 ring-df-indigo/30"
+                    : "border-slate-200 bg-white hover:border-df-indigo/40 hover:bg-df-indigo/5"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-df-text truncate">{a.CUSTOMER_NAME}</span>
+                    <span className="block text-xs text-slate-500 truncate">
+                      {a.BRAND_NAME} {a.MODEL} · {a.CHASIS_NUMBER} · {a.PROGRAM_NAME}
+                    </span>
+                  </span>
+                  <span className="text-xs text-slate-400 shrink-0">
+                    {isSelected ? "Selected" : a.DRV_SALES_MAN}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
         </div>
 
         <p className="text-xs text-slate-400">
-          The fields below are filled in automatically from system records once you select a customer and a vehicle
-          above. They are read-only and cannot be edited by any role.
+          The fields below are filled in automatically from system records. They are read-only and cannot be edited by
+          any role.
         </p>
 
-        <CustomerPanel data={customer} />
-        <ProgramPanel data={customer} />
-        <VehiclePanel data={vehicle} />
+        <CustomerPanel data={selected} />
+        <ProgramPanel data={selected} />
+        <VehiclePanel data={selected} />
       </div>
 
       <div className="card p-5 space-y-4">
@@ -241,12 +214,7 @@ export function NewContractForm({ role }: { role: Role }) {
           <Select label="Branch" value={branch} options={BRANCHES} onChange={setBranch} />
           <Select label="Car Type" value={carType} options={CAR_TYPES} onChange={setCarType} />
           <Select label="Contract Type" value={contractType} options={CONTRACT_TYPES} onChange={setContractType} />
-          <Select
-            label="Insurance Type"
-            value={insuranceType}
-            options={INSURANCE_TYPES}
-            onChange={setInsuranceType}
-          />
+          <Select label="Insurance Type" value={insuranceType} options={INSURANCE_TYPES} onChange={setInsuranceType} />
           <Select
             label="Contract Receival Method"
             value={receivalMethod}
@@ -265,19 +233,14 @@ export function NewContractForm({ role }: { role: Role }) {
           </div>
           <div>
             <label className="field-label">Sales Agent</label>
-            <input
-              className="input"
-              value={salesMan}
-              onChange={(e) => setSalesMan(e.target.value)}
-              placeholder="Agent name"
-            />
+            <div
+              className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-700 cursor-not-allowed truncate"
+              title={selected?.DRV_SALES_MAN ?? undefined}
+            >
+              {selected?.DRV_SALES_MAN ?? "—"}
+            </div>
           </div>
-          <Select
-            label="Sales Manager"
-            value={salesManager}
-            options={SALES_MANAGERS}
-            onChange={setSalesManager}
-          />
+          <Select label="Sales Manager" value={salesManager} options={SALES_MANAGERS} onChange={setSalesManager} />
           <div className="sm:col-span-3">
             <label className="field-label">Creation Note</label>
             <input
@@ -288,6 +251,9 @@ export function NewContractForm({ role }: { role: Role }) {
             />
           </div>
         </div>
+        <p className="text-xs text-slate-400">
+          Sales Agent comes from the assignment — it is what routes this deal, so it is not editable here.
+        </p>
       </div>
 
       <div className="card p-5 space-y-4">
@@ -321,10 +287,10 @@ export function NewContractForm({ role }: { role: Role }) {
       {error && <p className="text-sm text-status-red">{error}</p>}
 
       <div className="flex items-center gap-3">
-        <button className="btn-secondary" disabled={busy} onClick={() => submit("draft")}>
+        <button className="btn-secondary" disabled={busy || !selected} onClick={() => submit("draft")}>
           Save as Draft
         </button>
-        <button className="btn-primary" disabled={busy} onClick={() => submit("submit")}>
+        <button className="btn-primary" disabled={busy || !selected} onClick={() => submit("submit")}>
           Save &amp; Submit for Operations Review
         </button>
       </div>

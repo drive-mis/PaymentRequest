@@ -14,7 +14,7 @@ import {
 } from "@/lib/choices";
 import type { CarLoanRequest, LifecycleAction, Role } from "@/lib/types";
 import { asFieldMap, DuplicateWarning, useStore } from "@/lib/store";
-import { roleForPersonaName } from "@/lib/personas";
+import { roleForUserName } from "@/lib/personas";
 
 function ReasonBar({
   label,
@@ -102,7 +102,7 @@ export function ActionPanel({
   name: string;
   record: CarLoanRequest;
 }) {
-  const { patchRequest, performAction } = useStore();
+  const { patchRequest, performAction, users } = useStore();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [duplicate, setDuplicate] = useState<{ message: string; matches: string[] } | null>(null);
@@ -114,7 +114,6 @@ export function ActionPanel({
   // notably the document set, since "missing documents" is the most common
   // reason Operations returns a contract.
   const [contract, setContract] = useState({
-    DRV_SALES_MAN: record.DRV_SALES_MAN ?? "",
     Branch: record.Branch || BRANCHES[0],
     "Car Type": record["Car Type"] ?? CAR_TYPES[0],
     "Contract Type": record["Contract Type"] ?? CONTRACT_TYPES[0],
@@ -177,7 +176,7 @@ export function ActionPanel({
     performAction(appId, { action, ...extra, acknowledgeSimilar: !!duplicate });
   }
 
-  const createdByRole = roleForPersonaName(record.CreatedBy) ?? "Sales";
+  const createdByRole = roleForUserName(users, record.CreatedBy) ?? "Sales";
   const isCreator = record.CreatedBy === name;
 
   const canEditContract =
@@ -239,14 +238,6 @@ export function ActionPanel({
           <h3 className="text-sm font-semibold">Edit &amp; Submit Contract</h3>
 
           <div className="grid gap-3">
-            <div>
-              <label className="field-label">Sales Agent</label>
-              <input
-                className="input"
-                value={contract.DRV_SALES_MAN}
-                onChange={(e) => setContract((c) => ({ ...c, DRV_SALES_MAN: e.target.value }))}
-              />
-            </div>
             {(
               [
                 ["Branch", BRANCHES],

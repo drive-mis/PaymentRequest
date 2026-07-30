@@ -5,9 +5,10 @@ import type {
   AuditEntry,
   CarLoanRequest,
   LifecycleAction,
+  PendingApplication,
   Role,
-  Status,
   StatusHistoryEntry,
+  User,
 } from "./types";
 import {
   assertFieldsEditable,
@@ -21,16 +22,17 @@ import {
   type DuplicateCheckResult,
 } from "./rules";
 import { buildSeedData } from "./seedData";
-import { MOCK_CUSTOMERS, MOCK_VEHICLES } from "./mockSource";
-import { roleForPersonaName } from "./personas";
+import { buildSeedAssignments } from "./seedAssignments";
+import { DEFAULT_USERS, roleForUserName } from "./personas";
 
-// Bump the version suffix whenever the record shape changes, so browsers
-// holding older data re-seed instead of rendering records missing new fields.
-// v2: Car Type became an agent-chosen New/Used dropdown (was a vehicle-master
-// body style), the program moved onto the customer record, the branch list was
-// replaced, and the contract document set changed.
+// Bump a version suffix whenever the stored shape changes, so browsers holding
+// older data re-seed instead of rendering records missing new fields.
+// requests v2: Car Type became an agent-chosen New/Used dropdown, the program
+//   moved onto the customer record, branch list replaced, documents changed.
 const REQUESTS_KEY = "df_requests_v2";
 const SESSION_KEY = "df_session_v1";
+const USERS_KEY = "df_users_v1";
+const ASSIGNMENTS_KEY = "df_assignments_v1";
 
 export interface Session {
   name: string;
@@ -57,37 +59,29 @@ export class DuplicateWarning extends Error {
  * Which records the signed-in user is allowed to see.
  *
  * Sales agents are scoped to their own book of business — a request counts as
- * theirs if they created it or are the named sales agent on it. Operations and
- * Finance keep full visibility, since they review work that originates with
- * other people and cannot do their job without it.
+ * theirs if they created it or are the named sales agent on it. Operations,
+ * Finance and Admin keep full visibility: the first two review work that
+ * originates with other people, and Admin needs oversight of everything.
  */
 export function visibleTo(requests: CarLoanRequest[], session: Session | null): CarLoanRequest[] {
   if (!session) return [];
   if (session.role !== "Sales") return requests;
-  return requests.filter(
-    (r) => r.CreatedBy === session.name || r.DRV_SALES_MAN === session.name
-  );
+  return requests.filter((r) => r.CreatedBy === session.name || r.DRV_SALES_MAN === session.name);
 }
 
-interface StoreValue {
-  hydrated: boolean;
-  /** Every record in storage. Prefer `requests` unless you truly need all. */
-  allRequests: CarLoanRequest[];
-  /** Records the signed-in user may see (see visibleTo). */
-  requests: CarLoanRequest[];
-  session: Session | null;
-  signIn: (name: string) => void;
-  signOut: () => void;
-  getRequest: (appId: string) => CarLoanRequest | undefined;
-  createRequest: (input: CreateInput) => CarLoanRequest;
-  patchRequest: (appId: string, fields: Record<string, unknown>) => void;
-  performAction: (appId: string, input: ActionInput) => void;
-  resetData: () => void;
+/** Pending applications a user may act on. Sales see only their assignments. */
+export function assignmentsVisibleTo(
+  assignments: PendingApplication[],
+  session: Session | null
+): PendingApplication[] {
+  if (!session) return [];
+  if (session.role !== "Sales") return assignments;
+  return assignments.filter((a) => a.DRV_SALES_MAN === session.name);
 }
 
 export interface CreateInput {
-  CUSTOMER_ID_NUMBER: string;
-  CHASIS_NUMBER: string;
+  /** The pending application this contract is being raised from. */
+  ASSIGNMENT_ID: string;
   fields: Record<string, unknown>;
   acknowledgeSimilar?: boolean;
 }
@@ -99,28 +93,58 @@ export interface ActionInput {
   acknowledgeSimilar?: boolean;
 }
 
+export type UploadMode = "replace" | "append";
+
+interface StoreValue {
+  hydrated: boolean;
+  /** Every record in storage. Prefer `requests` unless you truly need all. */
+  allRequests: CarLoanRequest[];
+  /** Records the signed-in user may see (see visibleTo). */
+  requests: CarLoanRequest[];
+  session: Session | null;
+
+  users: User[];
+  addUser: (user: User) => void;
+  updateUser: (originalName: string, user: User) => void;
+  removeUser: (name: string) => void;
+
+  /** All uploaded applications, including ones already turned into contracts. */
+  allAssignments: PendingApplication[];
+  /** Still-pending applications the signed-in user may raise a contract from. */
+  openAssignments: PendingApplication[];
+  saveAssignments: (incoming: PendingApplication[], mode: UploadMode) => { added: number; skipped: number };
+  clearAssignments: () => void;
+
+  signIn: (name: string) => void;
+  signOut: () => void;
+  getRequest: (appId: string) => CarLoanRequest | undefined;
+  createRequest: (input: CreateInput) => CarLoanRequest;
+  patchRequest: (appId: string, fields: Record<string, unknown>) => void;
+  performAction: (appId: string, input: ActionInput) => void;
+  resetData: () => void;
+}
+
 const StoreContext = createContext<StoreValue | null>(null);
 
-function loadRequests(): CarLoanRequest[] {
+function readJson<T>(key: string, fallback: () => T): T {
   try {
-    const raw = window.localStorage.getItem(REQUESTS_KEY);
+    const raw = window.localStorage.getItem(key);
     if (!raw) {
-      const seeded = buildSeedData();
-      window.localStorage.setItem(REQUESTS_KEY, JSON.stringify(seeded));
+      const seeded = fallback();
+      window.localStorage.setItem(key, JSON.stringify(seeded));
       return seeded;
     }
-    return JSON.parse(raw) as CarLoanRequest[];
+    return JSON.parse(raw) as T;
   } catch {
-    return buildSeedData();
+    return fallback();
   }
 }
 
-function loadSession(): Session | null {
+function writeJson(key: string, value: unknown) {
   try {
-    const raw = window.localStorage.getItem(SESSION_KEY);
-    return raw ? (JSON.parse(raw) as Session) : null;
-  } catch {
-    return null;
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch (err) {
+    console.error(`Could not persist ${key} to localStorage`, err);
   }
 }
 
@@ -180,42 +204,139 @@ function toCandidates(records: CarLoanRequest[]) {
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [requests, setRequests] = useState<CarLoanRequest[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [assignments, setAssignments] = useState<PendingApplication[]>([]);
   const [session, setSession] = useState<Session | null>(null);
 
   // localStorage is browser-only, so load after mount to avoid an SSR/client
   // hydration mismatch. Screens render a loading state until this completes.
   useEffect(() => {
-    setRequests(loadRequests());
-    setSession(loadSession());
+    setRequests(readJson(REQUESTS_KEY, buildSeedData));
+    setUsers(readJson(USERS_KEY, () => DEFAULT_USERS));
+    setAssignments(readJson(ASSIGNMENTS_KEY, buildSeedAssignments));
+    try {
+      const raw = window.localStorage.getItem(SESSION_KEY);
+      setSession(raw ? (JSON.parse(raw) as Session) : null);
+    } catch {
+      setSession(null);
+    }
     setHydrated(true);
   }, []);
 
-  const persist = useCallback((next: CarLoanRequest[]) => {
+  const persistRequests = useCallback((next: CarLoanRequest[]) => {
     setRequests(next);
-    try {
-      window.localStorage.setItem(REQUESTS_KEY, JSON.stringify(next));
-    } catch (err) {
-      console.error("Could not persist requests to localStorage", err);
-    }
+    writeJson(REQUESTS_KEY, next);
   }, []);
 
-  const signIn = useCallback((name: string) => {
-    const role = roleForPersonaName(name);
-    if (!role) return;
-    const next = { name, role };
-    setSession(next);
-    window.localStorage.setItem(SESSION_KEY, JSON.stringify(next));
+  const persistUsers = useCallback((next: User[]) => {
+    setUsers(next);
+    writeJson(USERS_KEY, next);
   }, []);
+
+  const persistAssignments = useCallback((next: PendingApplication[]) => {
+    setAssignments(next);
+    writeJson(ASSIGNMENTS_KEY, next);
+  }, []);
+
+  // ---- Session ------------------------------------------------------------
+
+  const signIn = useCallback(
+    (name: string) => {
+      const user = users.find((u) => u.name === name && u.active);
+      if (!user) return;
+      const next = { name: user.name, role: user.role };
+      setSession(next);
+      writeJson(SESSION_KEY, next);
+    },
+    [users]
+  );
 
   const signOut = useCallback(() => {
     setSession(null);
     window.localStorage.removeItem(SESSION_KEY);
   }, []);
 
+  // ---- User management (Admin) -------------------------------------------
+
+  const addUser = useCallback(
+    (user: User) => {
+      const name = user.name.trim();
+      if (!name) throw new RuleViolation("User name is required.");
+      if (users.some((u) => u.name.toLowerCase() === name.toLowerCase())) {
+        throw new RuleViolation(`A user named "${name}" already exists.`);
+      }
+      persistUsers([...users, { ...user, name }]);
+    },
+    [users, persistUsers]
+  );
+
+  const updateUser = useCallback(
+    (originalName: string, user: User) => {
+      const name = user.name.trim();
+      if (!name) throw new RuleViolation("User name is required.");
+      if (
+        name.toLowerCase() !== originalName.toLowerCase() &&
+        users.some((u) => u.name.toLowerCase() === name.toLowerCase())
+      ) {
+        throw new RuleViolation(`A user named "${name}" already exists.`);
+      }
+      persistUsers(users.map((u) => (u.name === originalName ? { ...user, name } : u)));
+    },
+    [users, persistUsers]
+  );
+
+  const removeUser = useCallback(
+    (name: string) => {
+      // Requests and assignments reference users by name, so removing someone
+      // who owns work would orphan it. Deactivate instead in that case.
+      const ownsRequests = requests.some((r) => r.CreatedBy === name || r.DRV_SALES_MAN === name);
+      const ownsAssignments = assignments.some((a) => a.DRV_SALES_MAN === name);
+      if (ownsRequests || ownsAssignments) {
+        throw new RuleViolation(
+          `"${name}" is referenced by existing requests or assignments and cannot be deleted. Set them to inactive instead.`
+        );
+      }
+      if (session?.name === name) {
+        throw new RuleViolation("You cannot delete the user you are signed in as.");
+      }
+      persistUsers(users.filter((u) => u.name !== name));
+    },
+    [users, requests, assignments, session, persistUsers]
+  );
+
+  // ---- Application data upload (Admin) -----------------------------------
+
+  const saveAssignments = useCallback(
+    (incoming: PendingApplication[], mode: UploadMode) => {
+      if (mode === "replace") {
+        // Keep rows already turned into contracts, so replacing the sheet can
+        // never erase the provenance of an existing request.
+        const consumed = assignments.filter((a) => a.ConsumedByAppId);
+        const consumedIds = new Set(consumed.map((a) => a.ASSIGNMENT_ID));
+        const fresh = incoming.filter((a) => !consumedIds.has(a.ASSIGNMENT_ID));
+        persistAssignments([...consumed, ...fresh]);
+        return { added: fresh.length, skipped: incoming.length - fresh.length };
+      }
+
+      const existingIds = new Set(assignments.map((a) => a.ASSIGNMENT_ID));
+      const fresh = incoming.filter((a) => !existingIds.has(a.ASSIGNMENT_ID));
+      persistAssignments([...assignments, ...fresh]);
+      return { added: fresh.length, skipped: incoming.length - fresh.length };
+    },
+    [assignments, persistAssignments]
+  );
+
+  const clearAssignments = useCallback(() => {
+    persistAssignments(assignments.filter((a) => a.ConsumedByAppId));
+  }, [assignments, persistAssignments]);
+
   const resetData = useCallback(() => {
-    const seeded = buildSeedData();
-    persist(seeded);
-  }, [persist]);
+    persistRequests(buildSeedData());
+    persistAssignments(buildSeedAssignments());
+    persistUsers(DEFAULT_USERS);
+  }, [persistRequests, persistAssignments, persistUsers]);
+
+  // ---- Requests -----------------------------------------------------------
 
   // Scoped on purpose: a Sales agent opening another agent's request by URL
   // gets nothing back, so the detail page renders its not-found state rather
@@ -232,13 +353,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         throw new RuleViolation("Only Sales or Operations may create contracts.");
       }
 
-      const customer = MOCK_CUSTOMERS.find((c) => c.CUSTOMER_ID_NUMBER === input.CUSTOMER_ID_NUMBER);
-      const vehicle = MOCK_VEHICLES.find((v) => v.CHASIS_NUMBER === input.CHASIS_NUMBER);
-      if (!customer) throw new RuleViolation("Unknown customer — select one from lookup.");
-      if (!vehicle) throw new RuleViolation("Unknown vehicle — select one from lookup.");
+      const assignment = assignmentsVisibleTo(assignments, session).find(
+        (a) => a.ASSIGNMENT_ID === input.ASSIGNMENT_ID
+      );
+      if (!assignment) {
+        throw new RuleViolation("That application is not assigned to you, or no longer exists.");
+      }
+      if (assignment.ConsumedByAppId) {
+        throw new RuleViolation(
+          `A contract was already created from this application (${assignment.ConsumedByAppId}).`
+        );
+      }
 
-      // Only agent-editable creation fields are accepted; customer/vehicle data
-      // is always copied from the source lookup, never from the form.
+      // Only agent-editable creation fields are accepted; customer, vehicle and
+      // program data always come from the assignment, never from the form.
       const allowed = new Set(creatableFieldsFor(session.role));
       const editable: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(input.fields)) {
@@ -246,15 +374,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
 
       const dup = checkDuplicates(
-        customer.CUSTOMER_ID_NUMBER,
-        vehicle.CHASIS_NUMBER,
+        assignment.CUSTOMER_ID_NUMBER,
+        assignment.CHASIS_NUMBER,
         null,
         toCandidates(requests)
       );
       if (dup.exactMatch) {
-        throw new RuleViolation(
-          `A matching in-flight request already exists (${dup.exactMatch.APP_ID}).`
-        );
+        throw new RuleViolation(`A matching in-flight request already exists (${dup.exactMatch.APP_ID}).`);
       }
       if (dup.similarMatches.length && !input.acknowledgeSimilar) {
         throw new DuplicateWarning(
@@ -264,6 +390,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
 
       const now = new Date().toISOString();
+      const APP_ID = nextAppId(requests);
+
       const historyEntry: StatusHistoryEntry = {
         stage: session.role,
         status: "Draft",
@@ -275,39 +403,39 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       };
 
       const record: CarLoanRequest = {
-        APP_ID: nextAppId(requests),
+        APP_ID,
         APP_DATETIME: now,
-        APP_CUSTOMER_TYPE: customer.APP_CUSTOMER_TYPE,
-        // Program comes with the customer record — agents never pick it.
-        APP_PROGRAM_ID: customer.APP_PROGRAM_ID,
-        PROGRAM_NAME: customer.PROGRAM_NAME,
+        APP_CUSTOMER_TYPE: assignment.APP_CUSTOMER_TYPE,
+        APP_PROGRAM_ID: assignment.APP_PROGRAM_ID,
+        PROGRAM_NAME: assignment.PROGRAM_NAME,
         Branch: "",
         STATUS: "Draft",
         CREATION_DATE: null,
 
-        CUSTOMER_NAME: customer.CUSTOMER_NAME,
-        CUSTOMER_ID_NUMBER: customer.CUSTOMER_ID_NUMBER,
-        CUSTOMER_GENDER: customer.CUSTOMER_GENDER,
-        CUSTOMER_NATIONALITY: customer.CUSTOMER_NATIONALITY,
-        CUSTOMER_TITLE: customer.CUSTOMER_TITLE,
-        CUSTOMER_CLASS: customer.CUSTOMER_CLASS,
-        ORGANIZATION_NAME: customer.ORGANIZATION_NAME ?? null,
-        ORG_TYPE: customer.ORG_TYPE ?? null,
-        ORG_REG_NUMBER: customer.ORG_REG_NUMBER ?? null,
+        CUSTOMER_NAME: assignment.CUSTOMER_NAME,
+        CUSTOMER_ID_NUMBER: assignment.CUSTOMER_ID_NUMBER,
+        CUSTOMER_GENDER: assignment.CUSTOMER_GENDER,
+        CUSTOMER_NATIONALITY: assignment.CUSTOMER_NATIONALITY,
+        CUSTOMER_TITLE: assignment.CUSTOMER_TITLE,
+        CUSTOMER_CLASS: assignment.CUSTOMER_CLASS,
+        ORGANIZATION_NAME: assignment.ORGANIZATION_NAME,
+        ORG_TYPE: assignment.ORG_TYPE,
+        ORG_REG_NUMBER: assignment.ORG_REG_NUMBER,
 
-        BRAND_NAME: vehicle.BRAND_NAME,
-        MODEL: vehicle.MODEL,
-        CHASIS_NUMBER: vehicle.CHASIS_NUMBER,
-        MOTOR_NUMBER: vehicle.MOTOR_NUMBER,
-        COLOR: vehicle.COLOR,
-        ENGINE_SIZE: vehicle.ENGINE_SIZE,
-        YEAR_OF_PRODUCT: vehicle.YEAR_OF_PRODUCT,
+        BRAND_NAME: assignment.BRAND_NAME,
+        MODEL: assignment.MODEL,
+        CHASIS_NUMBER: assignment.CHASIS_NUMBER,
+        MOTOR_NUMBER: assignment.MOTOR_NUMBER,
+        COLOR: assignment.COLOR,
+        ENGINE_SIZE: assignment.ENGINE_SIZE,
+        YEAR_OF_PRODUCT: assignment.YEAR_OF_PRODUCT,
 
         "Car Type": null,
         "Contract Type": null,
         "Contract Ready Status": "Not Ready",
         "Contract Signing Date": null,
-        DRV_SALES_MAN: null,
+        // The assignment decides whose deal this is — not a free-text field.
+        DRV_SALES_MAN: assignment.DRV_SALES_MAN,
         DRV_SALES_MANAGER: null,
         "Insurance Type": null,
         "Receival Method": null,
@@ -359,8 +487,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         CustomerAcknowledgementFile: null,
 
         DuplicateCheckKey: computeDuplicateCheckKey(
-          customer.CUSTOMER_ID_NUMBER,
-          vehicle.CHASIS_NUMBER,
+          assignment.CUSTOMER_ID_NUMBER,
+          assignment.CHASIS_NUMBER,
           null
         ),
         IsPotentialDuplicate: dup.similarMatches.length > 0,
@@ -376,10 +504,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...editable,
       } as CarLoanRequest;
 
-      persist([...requests, record]);
+      persistRequests([...requests, record]);
+      persistAssignments(
+        assignments.map((a) =>
+          a.ASSIGNMENT_ID === assignment.ASSIGNMENT_ID ? { ...a, ConsumedByAppId: APP_ID } : a
+        )
+      );
       return record;
     },
-    [requests, session, persist]
+    [requests, assignments, session, persistRequests, persistAssignments]
   );
 
   const patchRequest = useCallback(
@@ -393,7 +526,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         throw new RuleViolation("This request is locked and can no longer be edited.");
       }
 
-      const createdByRole = roleForPersonaName(record.CreatedBy) ?? "Sales";
+      const createdByRole = roleForUserName(users, record.CreatedBy) ?? "Sales";
       assertFieldsEditable(fields, session.role, record.STATUS, createdByRole);
 
       const now = new Date().toISOString();
@@ -427,16 +560,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ModifiedOn: now,
       };
 
-      persist(requests.map((r) => (r.APP_ID === appId ? updated : r)));
+      persistRequests(requests.map((r) => (r.APP_ID === appId ? updated : r)));
     },
-    [requests, session, persist]
+    [requests, users, session, persistRequests]
   );
 
   const performAction = useCallback(
     (appId: string, input: ActionInput) => {
       if (!session) throw new RuleViolation("Not signed in.");
-      // Looked up through the visibility scope, so a Sales agent cannot mutate
-      // a request belonging to another agent even by calling this directly.
       const record = visibleTo(requests, session).find((r) => r.APP_ID === appId);
       if (!record) throw new RuleViolation("Request not found.");
 
@@ -446,7 +577,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         throw new RuleViolation("This request is closed and cannot be actioned further.");
       }
 
-      const createdByRole = roleForPersonaName(record.CreatedBy) ?? "Sales";
+      const createdByRole = roleForUserName(users, record.CreatedBy) ?? "Sales";
       if (fields) {
         assertFieldsEditable(fields, session.role, record.STATUS, createdByRole);
       }
@@ -469,9 +600,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           toCandidates(others)
         );
         if (dup.exactMatch) {
-          throw new RuleViolation(
-            `Duplicate payment request — matches ${dup.exactMatch.APP_ID}.`
-          );
+          throw new RuleViolation(`Duplicate payment request — matches ${dup.exactMatch.APP_ID}.`);
         }
         if (dup.similarMatches.length && !acknowledgeSimilar) {
           throw new DuplicateWarning(
@@ -570,9 +699,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ModifiedOn: now,
       };
 
-      persist(requests.map((r) => (r.APP_ID === appId ? updated : r)));
+      persistRequests(requests.map((r) => (r.APP_ID === appId ? updated : r)));
     },
-    [requests, session, persist]
+    [requests, users, session, persistRequests]
   );
 
   const value = useMemo<StoreValue>(
@@ -581,6 +710,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       allRequests: requests,
       requests: visibleTo(requests, session),
       session,
+      users,
+      addUser,
+      updateUser,
+      removeUser,
+      allAssignments: assignments,
+      openAssignments: assignmentsVisibleTo(assignments, session).filter((a) => !a.ConsumedByAppId),
+      saveAssignments,
+      clearAssignments,
       signIn,
       signOut,
       getRequest,
@@ -589,7 +726,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       performAction,
       resetData,
     }),
-    [hydrated, requests, session, signIn, signOut, getRequest, createRequest, patchRequest, performAction, resetData]
+    [
+      hydrated,
+      requests,
+      session,
+      users,
+      assignments,
+      addUser,
+      updateUser,
+      removeUser,
+      saveAssignments,
+      clearAssignments,
+      signIn,
+      signOut,
+      getRequest,
+      createRequest,
+      patchRequest,
+      performAction,
+      resetData,
+    ]
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

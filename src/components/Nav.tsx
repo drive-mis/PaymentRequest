@@ -24,6 +24,13 @@ const LINKS_BY_ROLE: Record<Role, { href: string; label: string }[]> = {
     { href: "/payment-execution", label: "Cheque Issuance" },
     { href: "/reporting", label: "Reporting" },
   ],
+  Admin: [
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/admin/users", label: "Users" },
+    { href: "/admin/data", label: "Application Data" },
+    { href: "/admin/requests", label: "All Requests" },
+    { href: "/reporting", label: "Reporting" },
+  ],
 };
 
 export function Nav({ name, role }: { name: string; role: Role }) {

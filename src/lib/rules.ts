@@ -29,7 +29,8 @@ export const SECTION_4_4_CONTRACT_FIELDS = [
   "Contract Type",
   "Contract Ready Status",
   "Contract Signing Date",
-  "DRV_SALES_MAN",
+  // DRV_SALES_MAN is deliberately absent: it comes from the uploaded
+  // assignment and is what routes the deal, so no role may retype it.
   "DRV_SALES_MANAGER",
   "Insurance Type",
   "Receival Method",

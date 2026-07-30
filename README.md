@@ -45,17 +45,75 @@ aging buckets and average-time-per-stage charts meaningful.
 
 ## Signing in — the role-switcher
 
-There's no real authentication. `/login` shows a roster of six personas, two per role:
+There's no real authentication. `/login` lists every **active** user and you pick one. The
+starting roster is:
 
-| Role | Personas |
+| Role | Users |
 |---|---|
 | Sales | Mona Aziz, Karim Adel |
 | Operations | Yara Hassan, Tarek Fathy |
 | Finance | Nadia Salem, Omar Ibrahim |
+| Admin | System Administrator |
 
-Picking a persona stores `{name, role}` in `localStorage` (`df_session_v1`) and sets the acting
-role for the session. Use **Switch** in the top bar to change persona at any time, or **Sign
-out** to clear it.
+Picking a user stores `{name, role}` in `localStorage` (`df_session_v1`) and sets the acting
+role. Use **Switch** in the top bar to change user, or **Sign out** to clear it.
+
+The roster is **not hardcoded** — Admin manages it at **Admin → Users**, so you can add or
+remove people without a code change. `src/lib/personas.ts` only supplies the initial seed.
+
+## The Admin portal
+
+Sign in as **System Administrator** to reach it.
+
+**Admin → Users** — add, edit, deactivate, or delete users. A Sales agent's name here is what
+uploaded applications are matched against, so it must match your spreadsheet exactly. A user who
+already owns requests or open assignments cannot be deleted (that would orphan their work) —
+deactivate them instead, which blocks sign-in but keeps history intact.
+
+**Admin → Application Data** — upload the customer, vehicle and program data. **One row = one
+application awaiting a contract**, and each row names the sales agent it's assigned to, which is
+what routes it to the right person's queue.
+
+- Accepts **.xlsx and .csv**. First row must be the headers.
+- **Download template** gives you a CSV with the exact headers plus an example row (UTF-8 BOM,
+  so Excel opens Arabic correctly).
+- Headers are matched case-insensitively and accept aliases — `Sales Agent` works as well as
+  `DRV_SALES_MAN`, `Chassis Number` as well as `CHASIS_NUMBER`. The full list is under
+  "Expected columns" on the page.
+- Bad rows are **rejected individually with the row number and reason** (missing required value,
+  non-numeric year, duplicate chassis within the sheet) rather than silently dropped, so a
+  partial import never looks like a clean one.
+- **Append** adds new rows only; **Replace** clears pending rows and loads the sheet. Either
+  way, rows already turned into a contract are never removed, so request history is preserved.
+- Rows assigned to a name that isn't an active Sales user are flagged — they won't appear in
+  anyone's queue until you add that user.
+
+**Admin → All Requests** — read-only oversight of every request across all agents and stages,
+with search and status filter. Admin does not act on the workflow.
+
+## Who sees what
+
+| Role | Visibility |
+|---|---|
+| **Sales** | Only their own book — requests they created or are the named sales agent on, and only applications assigned to them |
+| **Operations / Finance** | Everything; they review work that originates with other people |
+| **Admin** | Everything, read-only |
+
+Sales scoping is enforced in one place (`visibleTo` / `assignmentsVisibleTo` in
+`src/lib/store.tsx`) and applied to the record list, the single-record lookup, and the mutation
+lookups — so a Sales agent can't reach or modify another agent's request by URL.
+
+Duplicate detection and `APP_ID` generation deliberately run against **all** records, never the
+scoped view, so scoping can't cause colliding IDs or let a duplicate slip through just because
+the other copy belongs to someone else.
+
+## Raising a contract
+
+Sales (and Operations) don't search for a customer and a vehicle any more. They pick from the
+**applications assigned to them**, and the customer, vehicle and program panels load locked from
+that record. `DRV_SALES_MAN` comes from the assignment and is not editable by anyone — it's what
+routes the deal. Creating the contract marks the assignment as consumed and links it to the new
+`APP_ID`, so the same application can't be contracted twice.
 
 ## Data model
 

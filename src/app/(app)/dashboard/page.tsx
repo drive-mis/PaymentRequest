@@ -9,7 +9,7 @@ import { formatDateTime } from "@/lib/format";
 import type { CarLoanRequest } from "@/lib/types";
 
 export default function DashboardPage() {
-  const { hydrated, requests, session } = useStore();
+  const { hydrated, requests, session, users, allAssignments } = useStore();
   if (!hydrated || !session) return <LoadingScreen />;
 
   const { name, role } = session;
@@ -44,12 +44,26 @@ export default function DashboardPage() {
       { label: "My Drafts", value: all.filter((r) => r.CreatedBy === name && r.STATUS === "Draft").length, href: "/contracts/new" },
       { label: "Cheque Handover Pending", value: all.filter((r) => ["Cheque Issued", "Cheque Delivered to Operations"].includes(r.STATUS)).length, href: "/cheque-handover" },
     ];
-  } else {
+  } else if (role === "Finance") {
     roleTiles = [
       { label: "Pending My Review", value: all.filter((r) => ["Payment Request Submitted", "Under Finance Review"].includes(r.STATUS)).length, href: "/payment-requests/review" },
       { label: "Ready to Issue Cheque", value: all.filter((r) => r.STATUS === "Approved by Finance").length, href: "/payment-execution" },
       { label: "Returned by Me", value: all.filter((r) => r.STATUS === "Returned by Finance").length, href: "/payment-requests/review" },
       { label: "Delivered", value: delivered, href: "/reporting" },
+    ];
+  } else {
+    // Admin — oversight of the roster and the uploaded application data.
+    const openAssignments = allAssignments.filter((a) => !a.ConsumedByAppId);
+    const salesNames = new Set(users.filter((u) => u.role === "Sales").map((u) => u.name));
+    roleTiles = [
+      { label: "Active Users", value: users.filter((u) => u.active).length, href: "/admin/users" },
+      { label: "Pending Applications", value: openAssignments.length, href: "/admin/data" },
+      {
+        label: "Unassignable Rows",
+        value: openAssignments.filter((a) => !salesNames.has(a.DRV_SALES_MAN)).length,
+        href: "/admin/data",
+      },
+      { label: "All Requests", value: total, href: "/admin/requests" },
     ];
   }
 

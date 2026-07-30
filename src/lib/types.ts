@@ -1,6 +1,62 @@
-export type Role = "Sales" | "Operations" | "Finance";
+export type Role = "Sales" | "Operations" | "Finance" | "Admin";
 
-export const ROLES: Role[] = ["Sales", "Operations", "Finance"];
+/** Roles that take part in the contract-to-cheque workflow. */
+export const WORKFLOW_ROLES: Role[] = ["Sales", "Operations", "Finance"];
+
+export const ROLES: Role[] = ["Sales", "Operations", "Finance", "Admin"];
+
+/**
+ * A person who can sign in. Managed by Admin rather than hardcoded, so the
+ * roster can change without a code deploy.
+ */
+export interface User {
+  /** Unique — also the display name and what DRV_SALES_MAN is matched against. */
+  name: string;
+  role: Role;
+  title: string;
+  active: boolean;
+}
+
+/**
+ * A deal awaiting a contract, loaded by Admin from a spreadsheet. One row of
+ * the upload = one of these. It carries the customer, vehicle and program data
+ * (all read-only downstream) plus the sales agent it is assigned to, which is
+ * what routes it to the right person's queue.
+ */
+export interface PendingApplication {
+  ASSIGNMENT_ID: string;
+  /** Sales agent this deal is assigned to; matched against User.name. */
+  DRV_SALES_MAN: string;
+
+  // Customer
+  CUSTOMER_NAME: string;
+  CUSTOMER_ID_NUMBER: string;
+  APP_CUSTOMER_TYPE: string;
+  CUSTOMER_TITLE: string | null;
+  CUSTOMER_GENDER: string | null;
+  CUSTOMER_NATIONALITY: string | null;
+  CUSTOMER_CLASS: string | null;
+  ORGANIZATION_NAME: string | null;
+  ORG_TYPE: string | null;
+  ORG_REG_NUMBER: string | null;
+
+  // Vehicle
+  BRAND_NAME: string;
+  MODEL: string;
+  CHASIS_NUMBER: string;
+  MOTOR_NUMBER: string;
+  COLOR: string;
+  ENGINE_SIZE: string;
+  YEAR_OF_PRODUCT: number;
+
+  // Program
+  APP_PROGRAM_ID: number;
+  PROGRAM_NAME: string;
+
+  UploadedAt: string;
+  /** APP_ID of the contract created from this row; null while still pending. */
+  ConsumedByAppId: string | null;
+}
 
 export const STATUSES = [
   "Draft",
