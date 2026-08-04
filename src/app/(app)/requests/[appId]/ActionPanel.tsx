@@ -100,10 +100,10 @@ export function ActionPanel({
       CONTRACT_DOCUMENTS.map((d) => [d.field, asFieldMap(record)[d.field] as string | null])
     )
   );
+  // Only Operations' own note. Deviation and credit feedback come from the
+  // credit system with the application and are read-only.
   const [opsNotes, setOpsNotes] = useState({
     "Operation Notes": record["Operation Notes"] ?? "",
-    DEVIATION: record.DEVIATION ?? "",
-    FEEDBACK: record.FEEDBACK ?? "",
   });
   const [financeExec, setFinanceExec] = useState({
     "Finance Notes": record["Finance Notes"] ?? "",
@@ -290,23 +290,14 @@ export function ActionPanel({
                 onChange={(e) => setOpsNotes((o) => ({ ...o, "Operation Notes": e.target.value }))}
               />
             </div>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div>
-                <label className="field-label">Deviation</label>
-                <input
-                  className="input"
-                  value={opsNotes.DEVIATION}
-                  onChange={(e) => setOpsNotes((o) => ({ ...o, DEVIATION: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="field-label">Feedback</label>
-                <input
-                  className="input"
-                  value={opsNotes.FEEDBACK}
-                  onChange={(e) => setOpsNotes((o) => ({ ...o, FEEDBACK: e.target.value }))}
-                />
-              </div>
+            <div className="border-t border-slate-100 pt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Credit Assessment</p>
+              <p className="text-xs text-slate-400">
+                <span className="font-medium text-slate-500">Deviation:</span> {record.DEVIATION || "None"}
+              </p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                <span className="font-medium text-slate-500">Credit feedback:</span> {record.FEEDBACK || "—"}
+              </p>
             </div>
           </div>
 

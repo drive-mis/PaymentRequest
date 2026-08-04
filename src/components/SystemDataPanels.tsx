@@ -42,11 +42,17 @@ export interface FinancialLike {
   PRICE: number | null;
   DOWN_PAYMENT: number | null;
   LOAN_AMOUNT: number | null;
+  MONTHLY_INSTALLMENT: number | null;
   INTEREST_RATE: number | null;
   TENOR_MONTH: number | null;
   ADMIN_FEES: number | null;
   BANK_NAME: string | null;
   BANK_BRANCH: string | null;
+}
+
+export interface CreditLike {
+  DEVIATION: string | null;
+  FEEDBACK: string | null;
 }
 
 const AWAITING = "awaiting selection";
@@ -103,12 +109,31 @@ export function FinancialPanel({ data }: { data: FinancialLike | null }) {
         { label: "Down Payment", value: data ? formatCurrency(data.DOWN_PAYMENT) : null },
         { label: "Loan Amount", value: data ? formatCurrency(data.LOAN_AMOUNT) : null },
         { label: "Loan Amount (calculated)", value: data ? formatCurrency(calculated) : null },
+        { label: "Monthly Installment", value: data ? formatCurrency(data.MONTHLY_INSTALLMENT) : null },
         { label: "Interest Rate", value: data?.INTEREST_RATE != null ? `${data.INTEREST_RATE}%` : null },
         { label: "Tenor", value: data?.TENOR_MONTH != null ? `${data.TENOR_MONTH} months` : null },
         { label: "Admin Fees", value: data ? formatCurrency(data.ADMIN_FEES) : null },
         { label: "Bank Name", value: data?.BANK_NAME },
         { label: "Bank Branch", value: data?.BANK_BRANCH },
       ]}
+    />
+  );
+}
+
+/**
+ * Credit assessment. Comes from the credit system with the application, so
+ * Operations reads it while reviewing rather than writing it.
+ */
+export function CreditPanel({ data }: { data: CreditLike | null }) {
+  return (
+    <ReadOnlyPanel
+      title="Credit Assessment"
+      sourceLabel={data ? "sourced from system · read-only" : AWAITING}
+      fields={[
+        { label: "Deviation", value: data?.DEVIATION },
+        { label: "Credit Feedback", value: data?.FEEDBACK },
+      ]}
+      columns={2}
     />
   );
 }

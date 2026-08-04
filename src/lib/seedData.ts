@@ -414,8 +414,11 @@ function toRecord(spec: SeedSpec): CarLoanRequest {
     Receipt: "receipt.pdf",
 
     "Operation Notes": spec.operationNotes ?? null,
+    // Credit-system output that arrives with the application, not Operations' notes.
     DEVIATION: spec.deviation ?? null,
-    FEEDBACK: null,
+    FEEDBACK: spec.deviation
+      ? "Approved with condition: supporting documents to be verified before disbursement."
+      : "Credit approved — no conditions.",
     OperationsReviewedBy: firstOps?.changedBy ?? null,
     OperationsReviewDate: firstOps?.changedAt ?? null,
 
@@ -423,6 +426,7 @@ function toRecord(spec: SeedSpec): CarLoanRequest {
     DOWN_PAYMENT: loan.down,
     LOAN_AMOUNT: loan.loan,
     "Loan Amount Calculated": loan.price - loan.down,
+    MONTHLY_INSTALLMENT: Math.round((loan.loan * 1.35) / loan.tenor),
     INTEREST_RATE: loan.rate,
     TENOR_MONTH: loan.tenor,
     ADMIN_FEES: loan.fees,

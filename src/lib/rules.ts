@@ -46,11 +46,10 @@ export const SECTION_4_4_CONTRACT_FIELDS = [
   "Customer Cheque",
 ] as const;
 
-export const SECTION_4_5_OPERATIONS_REVIEW_FIELDS = [
-  "Operation Notes",
-  "DEVIATION",
-  "FEEDBACK",
-] as const;
+// DEVIATION and FEEDBACK are deliberately absent: both are credit-system
+// output that arrives with the uploaded application, so Operations reads them
+// rather than writing them. Only their own note is editable here.
+export const SECTION_4_5_OPERATIONS_REVIEW_FIELDS = ["Operation Notes"] as const;
 
 /**
  * Financial / loan terms. Listed for documentation only — they are NOT in any

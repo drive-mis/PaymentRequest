@@ -59,11 +59,16 @@ export interface PendingApplication {
   PRICE: number;
   DOWN_PAYMENT: number;
   LOAN_AMOUNT: number;
+  MONTHLY_INSTALLMENT: number | null;
   INTEREST_RATE: number | null;
   TENOR_MONTH: number | null;
   ADMIN_FEES: number | null;
   BANK_NAME: string;
   BANK_BRANCH: string;
+
+  // Credit assessment — the credit system's output, not Operations' opinion.
+  DEVIATION: string | null;
+  FEEDBACK: string | null;
 
   UploadedAt: string;
   /** APP_ID of the contract created from this row; null while still pending. */
@@ -202,6 +207,8 @@ export interface CarLoanRequest {
   DOWN_PAYMENT: number | null;
   LOAN_AMOUNT: number | null;
   "Loan Amount Calculated": number | null;
+  /** Monthly instalment for the loan program — system-sourced, never entered. */
+  MONTHLY_INSTALLMENT: number | null;
   INTEREST_RATE: number | null;
   TENOR_MONTH: number | null;
   ADMIN_FEES: number | null;

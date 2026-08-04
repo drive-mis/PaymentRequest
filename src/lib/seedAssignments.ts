@@ -48,11 +48,20 @@ export function buildSeedAssignments(): PendingApplication[] {
       PRICE: price,
       DOWN_PAYMENT: down,
       LOAN_AMOUNT: price - down,
+      MONTHLY_INSTALLMENT: Math.round(((price - down) * 1.35) / [36, 42, 48, 60][i % 4]),
       INTEREST_RATE: 21 + (i % 4) * 0.5,
       TENOR_MONTH: [36, 42, 48, 60][i % 4],
       ADMIN_FEES: 10_000 + i * 1_000,
       BANK_NAME: bank.BANK_NAME,
       BANK_BRANCH: bank.branches[0],
+
+      // Credit-system output. Most deals come back clean; a couple carry a
+      // deviation so the read-only credit panel has something to show.
+      DEVIATION: i % 3 === 0 ? "Down payment 2% below program floor — approved by exception." : null,
+      FEEDBACK:
+        i % 3 === 0
+          ? "Approved with condition: salary transfer letter to be collected before disbursement."
+          : "Credit approved — no conditions.",
 
       UploadedAt: now,
       ConsumedByAppId: null,

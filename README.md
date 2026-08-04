@@ -109,10 +109,11 @@ the other copy belongs to someone else.
 
 ## What is read-only, and what agents actually fill in
 
-Four blocks of data are **system-sourced and read-only for every role at every stage** —
-customer, vehicle, program, and the **financial / loan terms** (price, down payment, loan
-amount, interest rate, tenor, admin fees, bank, bank branch). All four arrive with the uploaded
-application and are rendered as locked field boxes, never inputs.
+Five blocks of data are **system-sourced and read-only for every role at every stage** —
+customer, vehicle, program, the **financial / loan terms** (price, down payment, loan amount,
+**monthly installment**, interest rate, tenor, admin fees, bank, bank branch), and the **credit
+assessment** (deviation and credit feedback). All five arrive with the uploaded application and
+are rendered as locked field boxes, never inputs.
 
 `PRICE`, `DOWN_PAYMENT`, `LOAN_AMOUNT`, `BANK_NAME` and `BANK_BRANCH` are **required columns**
 in the upload, because the payment-request gate checks them. Requiring them at import means a
@@ -124,7 +125,7 @@ That leaves each role with only its genuine decisions:
 | Role | Fills in |
 |---|---|
 | **Sales / Operations** (creating) | Branch, Car Type, Contract Type, Insurance Type, Contract Receival Method, Contract Ready Status, signing date, sales manager, creation note, and the nine documents |
-| **Operations** (reviewing) | Operation Notes, Deviation, Feedback — plus the Return / Reject / Submit decision |
+| **Operations** (reviewing) | Operation Notes — plus the Return / Reject / Submit decision. Deviation and credit feedback are shown read-only beside it |
 | **Finance** | Cheque number, cheque location, finance notes, and the cheque/receipt files |
 
 **Consequence worth knowing:** if Finance returns a payment request because the numbers are

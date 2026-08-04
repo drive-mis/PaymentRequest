@@ -49,11 +49,17 @@ export const COLUMNS: UploadColumn[] = [
   { header: "PRICE", field: "PRICE", type: "number", required: true, aliases: ["Car Price", "Price"], example: "1800000" },
   { header: "DOWN_PAYMENT", field: "DOWN_PAYMENT", type: "number", required: true, aliases: ["Down Payment", "Downpayment"], example: "360000" },
   { header: "LOAN_AMOUNT", field: "LOAN_AMOUNT", type: "number", required: true, aliases: ["Loan Amount", "Finance Amount"], example: "1440000" },
+  { header: "MONTHLY_INSTALLMENT", field: "MONTHLY_INSTALLMENT", type: "number", required: false, aliases: ["Monthly Installment", "Monthly Instalment", "Installment", "Instalment", "Monthly Payment"], example: "42500" },
   { header: "INTEREST_RATE", field: "INTEREST_RATE", type: "number", required: false, aliases: ["Interest Rate", "Rate"], example: "21.5" },
   { header: "TENOR_MONTH", field: "TENOR_MONTH", type: "number", required: false, aliases: ["Tenor", "Tenor Months", "Tenure"], example: "48" },
   { header: "ADMIN_FEES", field: "ADMIN_FEES", type: "number", required: false, aliases: ["Admin Fees", "Administration Fees"], example: "12000" },
   { header: "BANK_NAME", field: "BANK_NAME", type: "text", required: true, aliases: ["Bank", "Bank Name"], example: "National Bank of Egypt" },
   { header: "BANK_BRANCH", field: "BANK_BRANCH", type: "text", required: true, aliases: ["Bank Branch", "Branch of Bank"], example: "Nasr City" },
+
+  // Credit assessment output — comes from the credit system, so Operations
+  // reads it rather than writing it.
+  { header: "DEVIATION", field: "DEVIATION", type: "text", required: false, aliases: ["Deviation", "Policy Deviation", "Credit Deviation"], example: "" },
+  { header: "FEEDBACK", field: "FEEDBACK", type: "text", required: false, aliases: ["Credit Feedback", "Feedback", "Credit Comments"], example: "" },
 ];
 
 export const TEMPLATE_HEADERS = COLUMNS.map((c) => c.header);

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CustomerPanel, FinancialPanel, ProgramPanel, VehiclePanel } from "@/components/SystemDataPanels";
+import { CreditPanel, CustomerPanel, FinancialPanel, ProgramPanel, VehiclePanel } from "@/components/SystemDataPanels";
 import { FileField } from "@/components/FileField";
 import {
   BRANCHES,
@@ -207,6 +207,7 @@ export function NewContractForm({ role }: { role: Role }) {
         <ProgramPanel data={selected} />
         <VehiclePanel data={selected} />
         <FinancialPanel data={selected} />
+        <CreditPanel data={selected} />
       </div>
 
       <div className="card p-5 space-y-4">

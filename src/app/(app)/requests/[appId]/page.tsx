@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { asFieldMap, useStore } from "@/lib/store";
 import { StatusBadge } from "@/components/StatusBadge";
-import { CustomerPanel, FinancialPanel, ProgramPanel, VehiclePanel } from "@/components/SystemDataPanels";
+import { CreditPanel, CustomerPanel, FinancialPanel, ProgramPanel, VehiclePanel } from "@/components/SystemDataPanels";
 import { HistoryTimeline } from "@/components/HistoryTimeline";
 import { LoadingScreen } from "@/components/Guard";
 import { formatDate, formatDateTime, formatCurrency } from "@/lib/format";
@@ -107,6 +107,7 @@ export default function RequestDetailPage({ params }: { params: { appId: string 
         </div>
 
         <FinancialPanel data={r} />
+        <CreditPanel data={r} />
 
         {(r["Cheque Number"] || r.ChequeDeliveryStatus !== "Pending") && (
           <div className="card p-5">

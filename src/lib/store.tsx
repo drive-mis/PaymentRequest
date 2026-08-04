@@ -31,12 +31,15 @@ import { DEFAULT_USERS, roleForUserName } from "./personas";
 //   moved onto the customer record, branch list replaced, documents changed.
 // requests v3: loan terms are uploaded with the application, so every record
 //   carries them from creation — including Drafts, which previously had none.
-const REQUESTS_KEY = "df_requests_v3";
+// requests v4: monthly instalment added; DEVIATION / FEEDBACK became uploaded
+//   credit-system output instead of Operations-entered notes.
+const REQUESTS_KEY = "df_requests_v4";
 const SESSION_KEY = "df_session_v1";
 const USERS_KEY = "df_users_v1";
 // assignments v2: financial / loan terms moved into the upload, so they are
-// system-sourced and read-only like the customer and vehicle data.
-const ASSIGNMENTS_KEY = "df_assignments_v2";
+//   system-sourced and read-only like the customer and vehicle data.
+// assignments v3: monthly instalment, plus DEVIATION / FEEDBACK from credit.
+const ASSIGNMENTS_KEY = "df_assignments_v3";
 
 export interface Session {
   name: string;
@@ -452,8 +455,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         Invoice: null,
 
         "Operation Notes": null,
-        DEVIATION: null,
-        FEEDBACK: null,
+        // Credit-system output, carried over with the application.
+        DEVIATION: assignment.DEVIATION,
+        FEEDBACK: assignment.FEEDBACK,
         OperationsReviewedBy: null,
         OperationsReviewDate: null,
 
@@ -463,6 +467,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         DOWN_PAYMENT: assignment.DOWN_PAYMENT,
         LOAN_AMOUNT: assignment.LOAN_AMOUNT,
         "Loan Amount Calculated": assignment.PRICE - assignment.DOWN_PAYMENT,
+        MONTHLY_INSTALLMENT: assignment.MONTHLY_INSTALLMENT,
         INTEREST_RATE: assignment.INTEREST_RATE,
         TENOR_MONTH: assignment.TENOR_MONTH,
         ADMIN_FEES: assignment.ADMIN_FEES,
