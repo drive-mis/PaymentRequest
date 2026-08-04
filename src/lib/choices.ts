@@ -42,7 +42,8 @@ export const INSURANCE_TYPES = ["بدون تامين", "خارجي", "خزينة
 
 export const RECEIVAL_METHODS = ["استلام العقد من الفرع", "استلام العقد من خارج الفرع"];
 
-export const CONTRACT_READY_STATUSES = ["Not Ready", "Ready for Review", "Sent for Review"];
+/** How the customer signs / repays the contract. */
+export const SIGNING_METHODS = ["ACH", "Cheques"];
 
 // ---- Contract-stage document uploads --------------------------------------
 // The nine attachments captured on the New Contract form, in the order the

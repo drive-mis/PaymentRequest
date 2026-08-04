@@ -177,7 +177,14 @@ export interface CarLoanRequest {
   /** New / Used. Agent-selected, not a vehicle-master attribute. */
   "Car Type": string | null;
   "Contract Type": string | null;
+  /**
+   * Retained for schema fidelity with the business's existing column list, but
+   * no longer surfaced or editable: STATUS already tracks progress and this
+   * duplicated it.
+   */
   "Contract Ready Status": string;
+  /** How the customer signs / repays: ACH or Cheques. */
+  "Contract Signing Method": string | null;
   "Contract Signing Date": string | null;
   DRV_SALES_MAN: string | null;
   DRV_SALES_MANAGER: string | null;

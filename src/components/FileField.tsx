@@ -1,10 +1,14 @@
 "use client";
 
-// Frontend-only build: there's no upload endpoint and no file storage, so
-// picking a file records its name against the record (enough to demo the
-// document/attachment gates and show what was attached). File contents are
-// never read or stored — swapping this for a real upload later only needs
-// onChange to receive a URL instead of a filename.
+import { useState } from "react";
+import { parseFileRef, saveFile } from "@/lib/fileStore";
+import { DocumentLink } from "./DocumentLink";
+
+/**
+ * Picks a file, stores its bytes in IndexedDB, and hands back a reference for
+ * the record. Keeping the bytes out of localStorage is what makes attachments
+ * actually viewable later without blowing the storage quota.
+ */
 export function FileField({
   label,
   sublabel,
@@ -15,12 +19,27 @@ export function FileField({
   label: string;
   sublabel?: string;
   value: string | null | undefined;
-  onChange: (fileName: string) => void;
+  onChange: (fileRef: string) => void;
   required?: boolean;
 }) {
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const parsed = parseFileRef(value);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) onChange(file.name);
+    e.target.value = ""; // allow re-picking the same file after an error
+    if (!file) return;
+
+    setBusy(true);
+    setError(null);
+    try {
+      onChange(await saveFile(file));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not attach that file.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -31,17 +50,12 @@ export function FileField({
       {sublabel && <p className="text-[11px] uppercase tracking-wide text-slate-400 mb-2">{sublabel}</p>}
       <div className="flex items-center gap-2 flex-wrap">
         <label className="btn-secondary cursor-pointer !py-1 !px-2.5 !text-xs">
-          {value ? "Replace" : "Choose file"}
-          <input type="file" className="hidden" onChange={handleFile} />
+          {busy ? "Saving…" : parsed ? "Replace" : "Choose file"}
+          <input type="file" className="hidden" onChange={handleFile} disabled={busy} />
         </label>
-        {value ? (
-          <span className="text-xs text-emerald-700 truncate max-w-[150px]" title={value}>
-            ✓ {value}
-          </span>
-        ) : (
-          <span className="text-xs text-slate-400">No file</span>
-        )}
+        {parsed ? <DocumentLink value={value} /> : <span className="text-xs text-slate-400">No file</span>}
       </div>
+      {error && <p className="text-xs text-status-red mt-1">{error}</p>}
     </div>
   );
 }

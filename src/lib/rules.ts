@@ -27,7 +27,9 @@ export const SECTION_4_1_CREATE_FIELDS = ["Branch", "CREATION_DATE"] as const;
 export const SECTION_4_4_CONTRACT_FIELDS = [
   "Car Type",
   "Contract Type",
-  "Contract Ready Status",
+  // "Contract Ready Status" is deliberately absent — STATUS is system-computed
+  // and already tracks progress, so a second manual status only invited drift.
+  "Contract Signing Method",
   "Contract Signing Date",
   // DRV_SALES_MAN is deliberately absent: it comes from the uploaded
   // assignment and is what routes the deal, so no role may retype it.

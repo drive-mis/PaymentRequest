@@ -7,6 +7,7 @@ import {
   CONTRACT_TYPES,
   INSURANCE_TYPES,
   RECEIVAL_METHODS,
+  SIGNING_METHODS,
 } from "./choices";
 import { computeDuplicateCheckKey, deriveSubStatuses } from "./rules";
 import type { AuditEntry, CarLoanRequest, Role, Status, StatusHistoryEntry } from "./types";
@@ -399,6 +400,7 @@ function toRecord(spec: SeedSpec): CarLoanRequest {
     "Car Type": CAR_TYPES[spec.idx % CAR_TYPES.length],
     "Contract Type": CONTRACT_TYPES[spec.idx % CONTRACT_TYPES.length],
     "Contract Ready Status": spec.contractReadyStatus ?? "Sent for Review",
+    "Contract Signing Method": SIGNING_METHODS[spec.idx % SIGNING_METHODS.length],
     "Contract Signing Date": spec.loan ? history[0].changedAt : null,
     DRV_SALES_MAN: spec.salesAgent,
     DRV_SALES_MANAGER: SALES_MANAGERS[spec.idx % SALES_MANAGERS.length],

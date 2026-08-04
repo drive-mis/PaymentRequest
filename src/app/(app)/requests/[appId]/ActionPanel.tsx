@@ -9,7 +9,7 @@ import {
   CONTRACT_TYPES,
   INSURANCE_TYPES,
   RECEIVAL_METHODS,
-  CONTRACT_READY_STATUSES,
+  SIGNING_METHODS,
   CONTRACT_DOCUMENTS,
 } from "@/lib/choices";
 import type { CarLoanRequest, LifecycleAction, Role } from "@/lib/types";
@@ -93,7 +93,7 @@ export function ActionPanel({
     "Contract Type": record["Contract Type"] ?? CONTRACT_TYPES[0],
     "Insurance Type": record["Insurance Type"] ?? INSURANCE_TYPES[0],
     "Receival Method": record["Receival Method"] ?? RECEIVAL_METHODS[0],
-    "Contract Ready Status": record["Contract Ready Status"] ?? CONTRACT_READY_STATUSES[0],
+    "Contract Signing Method": record["Contract Signing Method"] ?? SIGNING_METHODS[0],
   });
   const [contractDocs, setContractDocs] = useState<Record<string, string | null>>(
     Object.fromEntries(
@@ -209,9 +209,9 @@ export function ActionPanel({
                 ["Contract Type", CONTRACT_TYPES],
                 ["Insurance Type", INSURANCE_TYPES],
                 ["Receival Method", RECEIVAL_METHODS],
-                ["Contract Ready Status", CONTRACT_READY_STATUSES],
+                ["Contract Signing Method", SIGNING_METHODS],
               ] as const
-            ).map(([field, options]) => (
+            ).map(([field, options]: readonly [string, string[]]) => (
               <div key={field}>
                 <label className="field-label">
                   {field === "Receival Method" ? "Contract Receival Method" : field}
@@ -259,10 +259,10 @@ export function ActionPanel({
               className="btn-primary"
               disabled={busy}
               onClick={() =>
-                run(() => {
-                  patchRequest(appId, { ...contract, ...contractDocs });
-                  act("SUBMIT_FOR_OPERATIONS_REVIEW");
-                })
+                // Edits ride along with the transition rather than being saved
+                // first: a separate patchRequest call would not be visible to
+                // the action yet, and its write would silently discard them.
+                run(() => act("SUBMIT_FOR_OPERATIONS_REVIEW", { fields: { ...contract, ...contractDocs } }))
               }
             >
               {status === "Returned by Operations" ? "Fix & Resubmit" : "Submit for Operations Review"}

@@ -11,7 +11,7 @@ import {
   CONTRACT_TYPES,
   INSURANCE_TYPES,
   RECEIVAL_METHODS,
-  CONTRACT_READY_STATUSES,
+  SIGNING_METHODS,
   CONTRACT_DOCUMENTS,
   SALES_MANAGERS,
 } from "@/lib/choices";
@@ -54,7 +54,7 @@ export function NewContractForm({ role }: { role: Role }) {
   const [creationNote, setCreationNote] = useState("");
   const [carType, setCarType] = useState(CAR_TYPES[0]);
   const [contractType, setContractType] = useState(CONTRACT_TYPES[0]);
-  const [contractReadyStatus, setContractReadyStatus] = useState(CONTRACT_READY_STATUSES[0]);
+  const [signingMethod, setSigningMethod] = useState(SIGNING_METHODS[0]);
   const [signingDate, setSigningDate] = useState("");
   const [salesManager, setSalesManager] = useState(SALES_MANAGERS[0]);
   const [insuranceType, setInsuranceType] = useState(INSURANCE_TYPES[0]);
@@ -87,7 +87,7 @@ export function NewContractForm({ role }: { role: Role }) {
       CREATION_DATE: creationNote || null,
       "Car Type": carType,
       "Contract Type": contractType,
-      "Contract Ready Status": contractReadyStatus,
+      "Contract Signing Method": signingMethod,
       "Contract Signing Date": signingDate ? new Date(signingDate).toISOString() : null,
       DRV_SALES_MANAGER: salesManager,
       "Insurance Type": insuranceType,
@@ -96,7 +96,12 @@ export function NewContractForm({ role }: { role: Role }) {
     };
   }
 
-  function submit(mode: "draft" | "submit") {
+  /**
+   * Creating a contract always submits it — there is no draft step. The record
+   * is created and immediately moved to "Submitted for Operations Review", so
+   * it appears in My Submissions already sitting with Operations.
+   */
+  function submit() {
     setError(null);
     if (!selected) {
       setError("Select the application you are raising this contract for.");
@@ -108,10 +113,8 @@ export function NewContractForm({ role }: { role: Role }) {
         ASSIGNMENT_ID: selected.ASSIGNMENT_ID,
         fields: buildFields(),
         acknowledgeSimilar: !!duplicate,
+        submitForReview: true,
       });
-      if (mode === "submit") {
-        performAction(created.APP_ID, { action: "SUBMIT_FOR_OPERATIONS_REVIEW" });
-      }
       router.push(`/requests/${created.APP_ID}`);
     } catch (err) {
       if (err instanceof DuplicateWarning) {
@@ -158,17 +161,34 @@ export function NewContractForm({ role }: { role: Role }) {
           </p>
         </div>
 
-        {openAssignments.length > 5 && (
+        <div className="relative">
           <input
-            className="input"
-            placeholder="Filter by customer, ID, vehicle or chassis…"
+            className="input pl-9"
+            placeholder="Search by customer name, ID, vehicle, chassis…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+          >
+            <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </div>
+
+        {search.trim() && (
+          <p className="text-xs text-slate-400 -mt-2">
+            {filtered.length} of {openAssignments.length} matching &ldquo;{search.trim()}&rdquo;
+          </p>
         )}
 
         <div className="grid gap-2 max-h-72 overflow-auto">
-          {filtered.length === 0 && <p className="text-sm text-slate-400">No applications match that filter.</p>}
+          {filtered.length === 0 && <p className="text-sm text-slate-400">No applications match that search.</p>}
           {filtered.map((a) => {
             const isSelected = a.ASSIGNMENT_ID === selectedId;
             return (
@@ -224,10 +244,10 @@ export function NewContractForm({ role }: { role: Role }) {
             onChange={setReceivalMethod}
           />
           <Select
-            label="Contract Ready Status"
-            value={contractReadyStatus}
-            options={CONTRACT_READY_STATUSES}
-            onChange={setContractReadyStatus}
+            label="Contract Signing Method"
+            value={signingMethod}
+            options={SIGNING_METHODS}
+            onChange={setSigningMethod}
           />
           <div>
             <label className="field-label">Contract Signing Date</label>
@@ -288,13 +308,13 @@ export function NewContractForm({ role }: { role: Role }) {
 
       {error && <p className="text-sm text-status-red">{error}</p>}
 
-      <div className="flex items-center gap-3">
-        <button className="btn-secondary" disabled={busy || !selected} onClick={() => submit("draft")}>
-          Save as Draft
+      <div className="flex items-center gap-3 flex-wrap">
+        <button className="btn-primary" disabled={busy || !selected} onClick={submit}>
+          {busy ? "Submitting…" : "Submit for Operations Review"}
         </button>
-        <button className="btn-primary" disabled={busy || !selected} onClick={() => submit("submit")}>
-          Save &amp; Submit for Operations Review
-        </button>
+        <p className="text-xs text-slate-400">
+          Submits straight to Operations and appears in your My Submissions — there is no draft step.
+        </p>
       </div>
     </div>
   );

@@ -124,7 +124,7 @@ That leaves each role with only its genuine decisions:
 
 | Role | Fills in |
 |---|---|
-| **Sales / Operations** (creating) | Branch, Car Type, Contract Type, Insurance Type, Contract Receival Method, Contract Ready Status, signing date, sales manager, creation note, and the nine documents |
+| **Sales / Operations** (creating) | Branch, Car Type, Contract Type, Insurance Type, Contract Receival Method, Contract Signing Method (ACH / Cheques), signing date, sales manager, creation note, and the nine documents |
 | **Operations** (reviewing) | Operation Notes — plus the Return / Reject / Submit decision. Deviation and credit feedback are shown read-only beside it |
 | **Finance** | Cheque number, cheque location, finance notes, and the cheque/receipt files |
 
@@ -132,13 +132,35 @@ That leaves each role with only its genuine decisions:
 wrong, Operations can no longer correct them — the only routes are Cancel, or Admin fixing the
 source data. That's the direct trade-off of making the loan terms read-only.
 
+## Attachments
+
+Documents are stored in **IndexedDB**, not localStorage — scanned contracts and cheque photos
+would blow through localStorage's ~5MB ceiling almost immediately. The request record keeps only
+a small `"<id>::<filename>"` reference; the bytes live under that id.
+
+That means Operations and Finance can click **View** to actually open what Sales attached. Two
+consequences of there being no server:
+
+- Attachments live in **the browser they were uploaded from**. Open the app elsewhere and the
+  filename still shows, but the View link is absent and it says "File not available in this
+  browser".
+- The sample data ships with filenames only (no bytes), so those show without a View link too.
+
 ## Raising a contract
 
 Sales (and Operations) don't search for a customer and a vehicle any more. They pick from the
-**applications assigned to them**, and the customer, vehicle and program panels load locked from
-that record. `DRV_SALES_MAN` comes from the assignment and is not editable by anyone — it's what
-routes the deal. Creating the contract marks the assignment as consumed and links it to the new
-`APP_ID`, so the same application can't be contracted twice.
+**applications assigned to them** — with a search box over that queue, since an agent can be
+carrying a lot of them — and the read-only panels load from that record. `DRV_SALES_MAN` comes
+from the assignment and is not editable by anyone; it's what routes the deal.
+
+**There is no draft step.** Submitting creates the request and moves it straight to
+`Submitted for Operations Review` in one atomic operation, so it lands in My Submissions already
+sitting with Operations. The assignment is marked consumed and linked to the new `APP_ID` at the
+same moment, so it disappears from the queue and can't be contracted twice.
+
+`Contract Ready Status` is no longer shown or editable: `STATUS` is system-computed and already
+tracks progress, so a second manual status only invited the two to disagree. The field is kept on
+the record for schema fidelity with the business's existing column list.
 
 ## Data model
 

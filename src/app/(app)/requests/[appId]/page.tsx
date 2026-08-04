@@ -8,6 +8,7 @@ import { HistoryTimeline } from "@/components/HistoryTimeline";
 import { LoadingScreen } from "@/components/Guard";
 import { formatDate, formatDateTime, formatCurrency } from "@/lib/format";
 import { CONTRACT_DOCUMENTS } from "@/lib/choices";
+import { DocumentLink } from "@/components/DocumentLink";
 import { ActionPanel } from "./ActionPanel";
 
 export default function RequestDetailPage({ params }: { params: { appId: string } }) {
@@ -27,6 +28,7 @@ export default function RequestDetailPage({ params }: { params: { appId: string 
     );
   }
 
+  const attachedCount = CONTRACT_DOCUMENTS.filter((d) => asFieldMap(r)[d.field]).length;
   const history = r.StatusHistoryLog ?? [];
   const latestReturn = r.STATUS.startsWith("Returned by")
     ? [...history].reverse().find((e) => e.status === r.STATUS)
@@ -70,7 +72,7 @@ export default function RequestDetailPage({ params }: { params: { appId: string 
               ["Branch", r.Branch],
               ["Car Type", r["Car Type"]],
               ["Contract Type", r["Contract Type"]],
-              ["Contract Ready Status", r["Contract Ready Status"]],
+              ["Contract Signing Method", r["Contract Signing Method"]],
               ["Signing Date", formatDate(r["Contract Signing Date"])],
               ["Sales Agent", r.DRV_SALES_MAN],
               ["Sales Manager", r.DRV_SALES_MANAGER],
@@ -88,21 +90,23 @@ export default function RequestDetailPage({ params }: { params: { appId: string 
         </div>
 
         <div className="card p-5">
-          <h3 className="text-sm font-semibold text-df-text mb-3">Documents</h3>
-          <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 text-sm">
-            {CONTRACT_DOCUMENTS.map((doc) => {
-              const file = asFieldMap(r)[doc.field] as string | null;
-              return (
-                <div key={doc.field}>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400" dir="auto">
-                    {doc.labelAr}
-                  </dt>
-                  <dd className={`mt-0.5 ${file ? "text-emerald-700" : "text-slate-400"}`}>
-                    {file ? `✓ ${file}` : "Not attached"}
-                  </dd>
-                </div>
-              );
-            })}
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h3 className="text-sm font-semibold text-df-text">Documents</h3>
+            <span className="text-xs text-slate-400">
+              {attachedCount} of {CONTRACT_DOCUMENTS.length} attached
+            </span>
+          </div>
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            {CONTRACT_DOCUMENTS.map((doc) => (
+              <div key={doc.field}>
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400" dir="auto">
+                  {doc.labelAr} <span className="normal-case tracking-normal">· {doc.labelEn}</span>
+                </dt>
+                <dd className="mt-0.5">
+                  <DocumentLink value={asFieldMap(r)[doc.field] as string | null} />
+                </dd>
+              </div>
+            ))}
           </dl>
         </div>
 
@@ -120,14 +124,26 @@ export default function RequestDetailPage({ params }: { params: { appId: string 
                 ["Cheque Delivery Status", r.ChequeDeliveryStatus],
                 ["Handed to Operations", formatDateTime(r.ChequeHandoverToOperationsDate)],
                 ["Delivered to Customer", formatDateTime(r.ChequeDeliveredToCustomerDate)],
-                ["Cheque File", r.Cheque],
-                ["Customer Acknowledgement", r.CustomerAcknowledgementFile],
               ].map(([label, value]) => (
                 <div key={label as string}>
                   <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</dt>
                   <dd className="text-slate-700 mt-0.5">{(value as string) || "—"}</dd>
                 </div>
               ))}
+              <div>
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Cheque File</dt>
+                <dd className="mt-0.5">
+                  <DocumentLink value={r.Cheque} />
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  Customer Acknowledgement
+                </dt>
+                <dd className="mt-0.5">
+                  <DocumentLink value={r.CustomerAcknowledgementFile} />
+                </dd>
+              </div>
             </dl>
           </div>
         )}

@@ -33,7 +33,9 @@ import { DEFAULT_USERS, roleForUserName } from "./personas";
 //   carries them from creation — including Drafts, which previously had none.
 // requests v4: monthly instalment added; DEVIATION / FEEDBACK became uploaded
 //   credit-system output instead of Operations-entered notes.
-const REQUESTS_KEY = "df_requests_v4";
+// requests v5: contract signing method (ACH / Cheques) added; attachments now
+//   store an IndexedDB reference rather than a bare filename.
+const REQUESTS_KEY = "df_requests_v5";
 const SESSION_KEY = "df_session_v1";
 const USERS_KEY = "df_users_v1";
 // assignments v2: financial / loan terms moved into the upload, so they are
@@ -91,6 +93,13 @@ export interface CreateInput {
   ASSIGNMENT_ID: string;
   fields: Record<string, unknown>;
   acknowledgeSimilar?: boolean;
+  /**
+   * Submit for Operations review as part of the same operation. Done inside
+   * the store rather than as a follow-up performAction call because React
+   * state has not flushed yet at that point — the new record would not be
+   * found. One atomic create-and-submit, one write.
+   */
+  submitForReview?: boolean;
 }
 
 export interface ActionInput {
@@ -440,6 +449,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         "Car Type": null,
         "Contract Type": null,
         "Contract Ready Status": "Not Ready",
+        "Contract Signing Method": null,
         "Contract Signing Date": null,
         // The assignment decides whose deal this is — not a free-text field.
         DRV_SALES_MAN: assignment.DRV_SALES_MAN,
@@ -515,13 +525,55 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...editable,
       } as CarLoanRequest;
 
-      persistRequests([...requests, record]);
+      // Apply the submit transition in-memory so it still goes through the
+      // same rule check, but lands in a single write alongside the create.
+      let finalRecord = record;
+      if (input.submitForReview) {
+        const rule = validateTransition(
+          "SUBMIT_FOR_OPERATIONS_REVIEW",
+          record.STATUS,
+          session.role,
+          null,
+          asFieldMap(record)
+        );
+        finalRecord = {
+          ...record,
+          STATUS: rule.to,
+          ...deriveSubStatuses(rule.to),
+          StatusHistoryLog: [
+            ...record.StatusHistoryLog,
+            {
+              stage: session.role,
+              status: rule.to,
+              decision: null,
+              reason: null,
+              changedBy: session.name,
+              changedByRole: session.role,
+              changedAt: now,
+            },
+          ],
+          AuditTrail: [
+            ...record.AuditTrail,
+            {
+              action: "SUBMIT_FOR_OPERATIONS_REVIEW",
+              field: "STATUS",
+              oldValue: record.STATUS,
+              newValue: rule.to,
+              user: session.name,
+              role: session.role,
+              timestamp: now,
+            },
+          ],
+        };
+      }
+
+      persistRequests([...requests, finalRecord]);
       persistAssignments(
         assignments.map((a) =>
           a.ASSIGNMENT_ID === assignment.ASSIGNMENT_ID ? { ...a, ConsumedByAppId: APP_ID } : a
         )
       );
-      return record;
+      return finalRecord;
     },
     [requests, assignments, session, persistRequests, persistAssignments]
   );

@@ -12,10 +12,12 @@ const ASSIGNED_AGENTS = ["Mona Aziz", "Karim Adel"];
 export function buildSeedAssignments(): PendingApplication[] {
   const now = new Date().toISOString();
 
-  // Vehicles 0-2 are already used by the seeded CarLoanRequests, so start at 3
-  // to keep these genuinely un-contracted.
-  return MOCK_VEHICLES.slice(3).map((vehicle, i) => {
-    const customer = MOCK_CUSTOMERS[(i + 3) % MOCK_CUSTOMERS.length];
+  // Customer/vehicle pairings are offset so that no assignment repeats a
+  // (customer, chassis) pair already used by a seeded request. Otherwise every
+  // sample contract would trip the duplicate warning, which is noise rather
+  // than a real signal.
+  return MOCK_VEHICLES.slice(0, 8).map((vehicle, i) => {
+    const customer = MOCK_CUSTOMERS[(i + 2) % MOCK_CUSTOMERS.length];
     const bank = BANKS[i % BANKS.length];
     const price = 1_600_000 + i * 250_000;
     const down = Math.round(price * 0.2);
