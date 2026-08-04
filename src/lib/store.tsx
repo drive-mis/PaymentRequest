@@ -29,10 +29,14 @@ import { DEFAULT_USERS, roleForUserName } from "./personas";
 // older data re-seed instead of rendering records missing new fields.
 // requests v2: Car Type became an agent-chosen New/Used dropdown, the program
 //   moved onto the customer record, branch list replaced, documents changed.
-const REQUESTS_KEY = "df_requests_v2";
+// requests v3: loan terms are uploaded with the application, so every record
+//   carries them from creation — including Drafts, which previously had none.
+const REQUESTS_KEY = "df_requests_v3";
 const SESSION_KEY = "df_session_v1";
 const USERS_KEY = "df_users_v1";
-const ASSIGNMENTS_KEY = "df_assignments_v1";
+// assignments v2: financial / loan terms moved into the upload, so they are
+// system-sourced and read-only like the customer and vehicle data.
+const ASSIGNMENTS_KEY = "df_assignments_v2";
 
 export interface Session {
   name: string;
@@ -453,15 +457,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         OperationsReviewedBy: null,
         OperationsReviewDate: null,
 
-        PRICE: null,
-        DOWN_PAYMENT: null,
-        LOAN_AMOUNT: null,
-        "Loan Amount Calculated": null,
-        INTEREST_RATE: null,
-        TENOR_MONTH: null,
-        ADMIN_FEES: null,
-        BANK_NAME: null,
-        BANK_BRANCH: null,
+        // Financial terms come from the assignment, like the customer and
+        // vehicle data — no role types these in.
+        PRICE: assignment.PRICE,
+        DOWN_PAYMENT: assignment.DOWN_PAYMENT,
+        LOAN_AMOUNT: assignment.LOAN_AMOUNT,
+        "Loan Amount Calculated": assignment.PRICE - assignment.DOWN_PAYMENT,
+        INTEREST_RATE: assignment.INTEREST_RATE,
+        TENOR_MONTH: assignment.TENOR_MONTH,
+        ADMIN_FEES: assignment.ADMIN_FEES,
+        BANK_NAME: assignment.BANK_NAME,
+        BANK_BRANCH: assignment.BANK_BRANCH,
 
         "Payment Request Status": "Draft",
         "Payment Request File": null,

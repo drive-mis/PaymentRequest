@@ -41,6 +41,19 @@ export const COLUMNS: UploadColumn[] = [
 
   { header: "APP_PROGRAM_ID", field: "APP_PROGRAM_ID", type: "number", required: true, aliases: ["Program ID"], example: "101" },
   { header: "PROGRAM_NAME", field: "PROGRAM_NAME", type: "text", required: true, aliases: ["Program", "Program Name"], example: "Standard Auto Loan" },
+
+  // Financial / loan terms. PRICE, DOWN_PAYMENT, LOAN_AMOUNT, BANK_NAME and
+  // BANK_BRANCH are required because the payment-request gate checks them —
+  // requiring them here means a bad row is caught at upload, where Admin can
+  // fix it, rather than stalling Operations later.
+  { header: "PRICE", field: "PRICE", type: "number", required: true, aliases: ["Car Price", "Price"], example: "1800000" },
+  { header: "DOWN_PAYMENT", field: "DOWN_PAYMENT", type: "number", required: true, aliases: ["Down Payment", "Downpayment"], example: "360000" },
+  { header: "LOAN_AMOUNT", field: "LOAN_AMOUNT", type: "number", required: true, aliases: ["Loan Amount", "Finance Amount"], example: "1440000" },
+  { header: "INTEREST_RATE", field: "INTEREST_RATE", type: "number", required: false, aliases: ["Interest Rate", "Rate"], example: "21.5" },
+  { header: "TENOR_MONTH", field: "TENOR_MONTH", type: "number", required: false, aliases: ["Tenor", "Tenor Months", "Tenure"], example: "48" },
+  { header: "ADMIN_FEES", field: "ADMIN_FEES", type: "number", required: false, aliases: ["Admin Fees", "Administration Fees"], example: "12000" },
+  { header: "BANK_NAME", field: "BANK_NAME", type: "text", required: true, aliases: ["Bank", "Bank Name"], example: "National Bank of Egypt" },
+  { header: "BANK_BRANCH", field: "BANK_BRANCH", type: "text", required: true, aliases: ["Bank Branch", "Branch of Bank"], example: "Nasr City" },
 ];
 
 export const TEMPLATE_HEADERS = COLUMNS.map((c) => c.header);

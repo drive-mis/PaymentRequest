@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { FileField } from "@/components/FileField";
+import { formatCurrency } from "@/lib/format";
 import {
-  BANKS,
   BRANCHES,
   CAR_TYPES,
   CONTRACT_TYPES,
@@ -67,32 +67,6 @@ function ReasonBar({
   );
 }
 
-function Num({
-  label,
-  value,
-  onChange,
-  required,
-}: {
-  label: string;
-  value: number | null;
-  onChange: (v: number | null) => void;
-  required?: boolean;
-}) {
-  return (
-    <div>
-      <label className="field-label">
-        {label} {required && <span className="text-status-red">*</span>}
-      </label>
-      <input
-        type="number"
-        className="input"
-        value={value ?? ""}
-        onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
-      />
-    </div>
-  );
-}
-
 export function ActionPanel({
   role,
   name,
@@ -130,16 +104,6 @@ export function ActionPanel({
     "Operation Notes": record["Operation Notes"] ?? "",
     DEVIATION: record.DEVIATION ?? "",
     FEEDBACK: record.FEEDBACK ?? "",
-  });
-  const [financial, setFinancial] = useState({
-    PRICE: record.PRICE,
-    DOWN_PAYMENT: record.DOWN_PAYMENT,
-    LOAN_AMOUNT: record.LOAN_AMOUNT,
-    INTEREST_RATE: record.INTEREST_RATE,
-    TENOR_MONTH: record.TENOR_MONTH,
-    ADMIN_FEES: record.ADMIN_FEES,
-    BANK_NAME: record.BANK_NAME ?? BANKS[0].BANK_NAME,
-    BANK_BRANCH: record.BANK_BRANCH ?? BANKS[0].branches[0],
   });
   const [financeExec, setFinanceExec] = useState({
     "Finance Notes": record["Finance Notes"] ?? "",
@@ -347,55 +311,21 @@ export function ActionPanel({
           </div>
 
           <div className="border-t border-slate-100 pt-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">
               Financial / Loan Details
             </p>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <Num label="Price" value={financial.PRICE} required onChange={(v) => setFinancial((f) => ({ ...f, PRICE: v }))} />
-              <Num label="Down Payment" value={financial.DOWN_PAYMENT} required onChange={(v) => setFinancial((f) => ({ ...f, DOWN_PAYMENT: v }))} />
-              <Num label="Loan Amount" value={financial.LOAN_AMOUNT} required onChange={(v) => setFinancial((f) => ({ ...f, LOAN_AMOUNT: v }))} />
-              <Num label="Interest Rate %" value={financial.INTEREST_RATE} onChange={(v) => setFinancial((f) => ({ ...f, INTEREST_RATE: v }))} />
-              <Num label="Tenor (months)" value={financial.TENOR_MONTH} onChange={(v) => setFinancial((f) => ({ ...f, TENOR_MONTH: v }))} />
-              <Num label="Admin Fees" value={financial.ADMIN_FEES} onChange={(v) => setFinancial((f) => ({ ...f, ADMIN_FEES: v }))} />
-              <div>
-                <label className="field-label">
-                  Bank <span className="text-status-red">*</span>
-                </label>
-                <select
-                  className="input"
-                  value={financial.BANK_NAME}
-                  onChange={(e) => {
-                    const bank = BANKS.find((b) => b.BANK_NAME === e.target.value)!;
-                    setFinancial((f) => ({ ...f, BANK_NAME: bank.BANK_NAME, BANK_BRANCH: bank.branches[0] }));
-                  }}
-                >
-                  {BANKS.map((b) => (
-                    <option key={b.BANK_NAME}>{b.BANK_NAME}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="field-label">
-                  Bank Branch <span className="text-status-red">*</span>
-                </label>
-                <select
-                  className="input"
-                  value={financial.BANK_BRANCH}
-                  onChange={(e) => setFinancial((f) => ({ ...f, BANK_BRANCH: e.target.value }))}
-                >
-                  {(BANKS.find((b) => b.BANK_NAME === financial.BANK_NAME)?.branches ?? []).map((br) => (
-                    <option key={br}>{br}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            <p className="text-xs text-slate-400">
+              {formatCurrency(record.LOAN_AMOUNT)} over {record.TENOR_MONTH ?? "—"} months via{" "}
+              {record.BANK_NAME || "—"}. Full terms are in the record on the left. They come from the uploaded
+              application and are read-only — if they are wrong, Admin must correct the source data.
+            </p>
           </div>
 
           <div className="flex flex-wrap gap-2 pt-2">
             <button
               className="btn-secondary"
               disabled={busy}
-              onClick={() => run(() => patchRequest(appId, { ...opsNotes, ...financial }))}
+              onClick={() => run(() => patchRequest(appId, { ...opsNotes }))}
             >
               Save Draft
             </button>
@@ -420,7 +350,7 @@ export function ActionPanel({
             <button
               className="btn-primary"
               disabled={busy}
-              onClick={() => run(() => act("SUBMIT_PAYMENT_REQUEST", { fields: { ...opsNotes, ...financial } }))}
+              onClick={() => run(() => act("SUBMIT_PAYMENT_REQUEST", { fields: { ...opsNotes } }))}
             >
               {canResubmitPaymentRequest ? "Fix & Resubmit Payment Request" : "Submit Payment Request to Finance"}
             </button>

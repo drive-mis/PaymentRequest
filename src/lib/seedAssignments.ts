@@ -1,4 +1,5 @@
 import { MOCK_CUSTOMERS, MOCK_VEHICLES } from "./mockSource";
+import { BANKS } from "./choices";
 import type { PendingApplication } from "./types";
 
 // Stand-in for the spreadsheet Admin would normally upload, so a fresh browser
@@ -15,6 +16,9 @@ export function buildSeedAssignments(): PendingApplication[] {
   // to keep these genuinely un-contracted.
   return MOCK_VEHICLES.slice(3).map((vehicle, i) => {
     const customer = MOCK_CUSTOMERS[(i + 3) % MOCK_CUSTOMERS.length];
+    const bank = BANKS[i % BANKS.length];
+    const price = 1_600_000 + i * 250_000;
+    const down = Math.round(price * 0.2);
     return {
       ASSIGNMENT_ID: `ASG-${vehicle.CHASIS_NUMBER}-${customer.CUSTOMER_ID_NUMBER}`,
       DRV_SALES_MAN: ASSIGNED_AGENTS[i % ASSIGNED_AGENTS.length],
@@ -40,6 +44,15 @@ export function buildSeedAssignments(): PendingApplication[] {
 
       APP_PROGRAM_ID: customer.APP_PROGRAM_ID,
       PROGRAM_NAME: customer.PROGRAM_NAME,
+
+      PRICE: price,
+      DOWN_PAYMENT: down,
+      LOAN_AMOUNT: price - down,
+      INTEREST_RATE: 21 + (i % 4) * 0.5,
+      TENOR_MONTH: [36, 42, 48, 60][i % 4],
+      ADMIN_FEES: 10_000 + i * 1_000,
+      BANK_NAME: bank.BANK_NAME,
+      BANK_BRANCH: bank.branches[0],
 
       UploadedAt: now,
       ConsumedByAppId: null,

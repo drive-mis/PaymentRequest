@@ -52,6 +52,11 @@ export const SECTION_4_5_OPERATIONS_REVIEW_FIELDS = [
   "FEEDBACK",
 ] as const;
 
+/**
+ * Financial / loan terms. Listed for documentation only — they are NOT in any
+ * role's editable set. Like the customer and vehicle data, they arrive with the
+ * uploaded application and are read-only for every role at every stage.
+ */
 export const SECTION_4_6_FINANCIAL_FIELDS = [
   "PRICE",
   "DOWN_PAYMENT",
@@ -107,10 +112,11 @@ export function editableFieldsFor(role: Role, status: Status, createdByRole: Rol
       status === "Under Operations Review" ||
       status === "Returned by Finance"
     ) {
+      // Note: no SECTION_4_6_FINANCIAL_FIELDS — the loan terms are uploaded,
+      // not entered here.
       return [
         ...SECTION_4_4_CONTRACT_FIELDS,
         ...SECTION_4_5_OPERATIONS_REVIEW_FIELDS,
-        ...SECTION_4_6_FINANCIAL_FIELDS,
         ...SECTION_4_7_PAYMENT_REQUEST_FIELDS,
       ];
     }

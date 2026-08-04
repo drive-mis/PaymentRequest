@@ -352,6 +352,21 @@ function toRecord(spec: SeedSpec): CarLoanRequest {
   const latestDecision = [...history].reverse().find((e) => e.decision);
   const latestReason = [...history].reverse().find((e) => e.reason);
 
+  // Loan terms now arrive with the uploaded application, so every record has
+  // them from the moment it is created — including Drafts.
+  const bank = BANKS[spec.idx % BANKS.length];
+  const fallbackPrice = 1_500_000 + (spec.idx % 7) * 200_000;
+  const loan = spec.loan ?? {
+    price: fallbackPrice,
+    down: Math.round(fallbackPrice * 0.2),
+    loan: fallbackPrice - Math.round(fallbackPrice * 0.2),
+    rate: 21 + (spec.idx % 4) * 0.5,
+    tenor: [36, 42, 48, 60][spec.idx % 4],
+    fees: 10_000 + (spec.idx % 5) * 1_000,
+    bank: bank.BANK_NAME,
+    bankBranch: bank.branches[0],
+  };
+
   return {
     APP_ID: appId(spec.idx),
     APP_DATETIME: history[0].changedAt,
@@ -404,15 +419,15 @@ function toRecord(spec: SeedSpec): CarLoanRequest {
     OperationsReviewedBy: firstOps?.changedBy ?? null,
     OperationsReviewDate: firstOps?.changedAt ?? null,
 
-    PRICE: spec.loan?.price ?? null,
-    DOWN_PAYMENT: spec.loan?.down ?? null,
-    LOAN_AMOUNT: spec.loan?.loan ?? null,
-    "Loan Amount Calculated": spec.loan ? spec.loan.price - spec.loan.down : null,
-    INTEREST_RATE: spec.loan?.rate ?? null,
-    TENOR_MONTH: spec.loan?.tenor ?? null,
-    ADMIN_FEES: spec.loan?.fees ?? null,
-    BANK_NAME: spec.loan?.bank ?? null,
-    BANK_BRANCH: spec.loan?.bankBranch ?? null,
+    PRICE: loan.price,
+    DOWN_PAYMENT: loan.down,
+    LOAN_AMOUNT: loan.loan,
+    "Loan Amount Calculated": loan.price - loan.down,
+    INTEREST_RATE: loan.rate,
+    TENOR_MONTH: loan.tenor,
+    ADMIN_FEES: loan.fees,
+    BANK_NAME: loan.bank,
+    BANK_BRANCH: loan.bankBranch,
 
     "Payment Request Status": sub["Payment Request Status"] ?? "Draft",
     "Payment Request File": null,

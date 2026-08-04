@@ -70,9 +70,9 @@ uploaded applications are matched against, so it must match your spreadsheet exa
 already owns requests or open assignments cannot be deleted (that would orphan their work) —
 deactivate them instead, which blocks sign-in but keeps history intact.
 
-**Admin → Application Data** — upload the customer, vehicle and program data. **One row = one
-application awaiting a contract**, and each row names the sales agent it's assigned to, which is
-what routes it to the right person's queue.
+**Admin → Application Data** — upload the customer, vehicle, program **and loan/financial**
+data. **One row = one application awaiting a contract**, and each row names the sales agent it's
+assigned to, which is what routes it to the right person's queue.
 
 - Accepts **.xlsx and .csv**. First row must be the headers.
 - **Download template** gives you a CSV with the exact headers plus an example row (UTF-8 BOM,
@@ -106,6 +106,30 @@ lookups — so a Sales agent can't reach or modify another agent's request by UR
 Duplicate detection and `APP_ID` generation deliberately run against **all** records, never the
 scoped view, so scoping can't cause colliding IDs or let a duplicate slip through just because
 the other copy belongs to someone else.
+
+## What is read-only, and what agents actually fill in
+
+Four blocks of data are **system-sourced and read-only for every role at every stage** —
+customer, vehicle, program, and the **financial / loan terms** (price, down payment, loan
+amount, interest rate, tenor, admin fees, bank, bank branch). All four arrive with the uploaded
+application and are rendered as locked field boxes, never inputs.
+
+`PRICE`, `DOWN_PAYMENT`, `LOAN_AMOUNT`, `BANK_NAME` and `BANK_BRANCH` are **required columns**
+in the upload, because the payment-request gate checks them. Requiring them at import means a
+bad row is caught on the Admin screen, where it can be fixed, instead of stalling Operations
+later with numbers they aren't allowed to enter.
+
+That leaves each role with only its genuine decisions:
+
+| Role | Fills in |
+|---|---|
+| **Sales / Operations** (creating) | Branch, Car Type, Contract Type, Insurance Type, Contract Receival Method, Contract Ready Status, signing date, sales manager, creation note, and the nine documents |
+| **Operations** (reviewing) | Operation Notes, Deviation, Feedback — plus the Return / Reject / Submit decision |
+| **Finance** | Cheque number, cheque location, finance notes, and the cheque/receipt files |
+
+**Consequence worth knowing:** if Finance returns a payment request because the numbers are
+wrong, Operations can no longer correct them — the only routes are Cancel, or Admin fixing the
+source data. That's the direct trade-off of making the loan terms read-only.
 
 ## Raising a contract
 

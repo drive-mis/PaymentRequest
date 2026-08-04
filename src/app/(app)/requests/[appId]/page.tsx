@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { asFieldMap, useStore } from "@/lib/store";
 import { StatusBadge } from "@/components/StatusBadge";
-import { CustomerPanel, ProgramPanel, VehiclePanel } from "@/components/SystemDataPanels";
+import { CustomerPanel, FinancialPanel, ProgramPanel, VehiclePanel } from "@/components/SystemDataPanels";
 import { HistoryTimeline } from "@/components/HistoryTimeline";
 import { LoadingScreen } from "@/components/Guard";
 import { formatDate, formatDateTime, formatCurrency } from "@/lib/format";
@@ -106,29 +106,7 @@ export default function RequestDetailPage({ params }: { params: { appId: string 
           </dl>
         </div>
 
-        {(r.PRICE !== null || r.LOAN_AMOUNT !== null) && (
-          <div className="card p-5">
-            <h3 className="text-sm font-semibold text-df-text mb-3">Financial / Loan Details</h3>
-            <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 text-sm">
-              {[
-                ["Price", formatCurrency(r.PRICE)],
-                ["Down Payment", formatCurrency(r.DOWN_PAYMENT)],
-                ["Loan Amount", formatCurrency(r.LOAN_AMOUNT)],
-                ["Loan Amount (calc.)", formatCurrency(r["Loan Amount Calculated"])],
-                ["Interest Rate", r.INTEREST_RATE ? `${r.INTEREST_RATE}%` : "—"],
-                ["Tenor", r.TENOR_MONTH ? `${r.TENOR_MONTH} months` : "—"],
-                ["Admin Fees", formatCurrency(r.ADMIN_FEES)],
-                ["Bank", r.BANK_NAME],
-                ["Bank Branch", r.BANK_BRANCH],
-              ].map(([label, value]) => (
-                <div key={label as string}>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</dt>
-                  <dd className="text-slate-700 mt-0.5">{(value as string) || "—"}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-        )}
+        <FinancialPanel data={r} />
 
         {(r["Cheque Number"] || r.ChequeDeliveryStatus !== "Pending") && (
           <div className="card p-5">

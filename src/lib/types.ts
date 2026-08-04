@@ -53,6 +53,18 @@ export interface PendingApplication {
   APP_PROGRAM_ID: number;
   PROGRAM_NAME: string;
 
+  // Financial / loan terms — system-sourced like the rest, not agent-entered.
+  // The five the payment-request gate depends on are required at upload, so a
+  // deal can never reach Operations missing the numbers they'd need.
+  PRICE: number;
+  DOWN_PAYMENT: number;
+  LOAN_AMOUNT: number;
+  INTEREST_RATE: number | null;
+  TENOR_MONTH: number | null;
+  ADMIN_FEES: number | null;
+  BANK_NAME: string;
+  BANK_BRANCH: string;
+
   UploadedAt: string;
   /** APP_ID of the contract created from this row; null while still pending. */
   ConsumedByAppId: string | null;

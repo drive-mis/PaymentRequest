@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Guard } from "@/components/Guard";
 import { useStore, type UploadMode } from "@/lib/store";
 import { COLUMNS, buildTemplateCsv, parseUploadFile, type ParseResult } from "@/lib/uploadSchema";
-import { formatDateTime } from "@/lib/format";
+import { formatCurrency, formatDateTime } from "@/lib/format";
 
 export default function AdminDataPage() {
   return <Guard allow={["Admin"]}>{() => <DataManager />}</Guard>;
@@ -205,6 +205,8 @@ function DataManager() {
                     <th className="text-left px-4 py-2.5">Vehicle</th>
                     <th className="text-left px-4 py-2.5">Chassis</th>
                     <th className="text-left px-4 py-2.5">Program</th>
+                    <th className="text-left px-4 py-2.5">Loan Amount</th>
+                    <th className="text-left px-4 py-2.5">Bank</th>
                     <th className="text-left px-4 py-2.5">Uploaded</th>
                     <th className="text-left px-4 py-2.5">State</th>
                   </tr>
@@ -224,6 +226,8 @@ function DataManager() {
                       </td>
                       <td className="px-4 py-2.5 text-slate-500">{a.CHASIS_NUMBER}</td>
                       <td className="px-4 py-2.5 text-slate-500">{a.PROGRAM_NAME}</td>
+                      <td className="px-4 py-2.5">{formatCurrency(a.LOAN_AMOUNT)}</td>
+                      <td className="px-4 py-2.5 text-slate-500">{a.BANK_NAME}</td>
                       <td className="px-4 py-2.5 text-slate-400">{formatDateTime(a.UploadedAt)}</td>
                       <td className="px-4 py-2.5">
                         {a.ConsumedByAppId ? (

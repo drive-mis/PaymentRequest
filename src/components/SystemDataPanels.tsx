@@ -1,4 +1,5 @@
 import { ReadOnlyPanel } from "./ReadOnlyPanel";
+import { formatCurrency } from "@/lib/format";
 
 // One definition of the system-sourced panels, shared by the New Contract form
 // and the Request Detail view so the two can never drift apart. Both a raw
@@ -37,6 +38,17 @@ export interface ProgramLike {
   APP_PROGRAM_ID: number;
 }
 
+export interface FinancialLike {
+  PRICE: number | null;
+  DOWN_PAYMENT: number | null;
+  LOAN_AMOUNT: number | null;
+  INTEREST_RATE: number | null;
+  TENOR_MONTH: number | null;
+  ADMIN_FEES: number | null;
+  BANK_NAME: string | null;
+  BANK_BRANCH: string | null;
+}
+
 const AWAITING = "awaiting selection";
 
 export function CustomerPanel({ data }: { data: CustomerLike | null }) {
@@ -73,6 +85,29 @@ export function VehiclePanel({ data }: { data: VehicleLike | null }) {
         { label: "Color", value: data?.COLOR },
         { label: "Engine Size", value: data?.ENGINE_SIZE },
         { label: "Year of Product", value: data?.YEAR_OF_PRODUCT },
+      ]}
+    />
+  );
+}
+
+export function FinancialPanel({ data }: { data: FinancialLike | null }) {
+  const calculated =
+    data && data.PRICE !== null && data.DOWN_PAYMENT !== null ? data.PRICE - data.DOWN_PAYMENT : null;
+
+  return (
+    <ReadOnlyPanel
+      title="Financial / Loan Details"
+      sourceLabel={data ? "sourced from system · read-only" : AWAITING}
+      fields={[
+        { label: "Price", value: data ? formatCurrency(data.PRICE) : null },
+        { label: "Down Payment", value: data ? formatCurrency(data.DOWN_PAYMENT) : null },
+        { label: "Loan Amount", value: data ? formatCurrency(data.LOAN_AMOUNT) : null },
+        { label: "Loan Amount (calculated)", value: data ? formatCurrency(calculated) : null },
+        { label: "Interest Rate", value: data?.INTEREST_RATE != null ? `${data.INTEREST_RATE}%` : null },
+        { label: "Tenor", value: data?.TENOR_MONTH != null ? `${data.TENOR_MONTH} months` : null },
+        { label: "Admin Fees", value: data ? formatCurrency(data.ADMIN_FEES) : null },
+        { label: "Bank Name", value: data?.BANK_NAME },
+        { label: "Bank Branch", value: data?.BANK_BRANCH },
       ]}
     />
   );
