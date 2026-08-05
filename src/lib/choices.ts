@@ -61,6 +61,34 @@ export const CONTRACT_DOCUMENTS: { field: string; labelAr: string; labelEn: stri
   { field: "Customer Cheque", labelAr: "صورة الشيك للعميل", labelEn: "Customer cheque photo" },
 ];
 
+/** Showrooms deals originate from. Sample reference data for the seed. */
+export const SHOWROOMS = [
+  {
+    SHOWROOM_NAME: "Auto Prime Nasr City",
+    SHOWROOM_CODE: "SHR-001",
+    SHOWROOM_ADDRESS: "12 Abbas El Akkad St, Nasr City, Cairo",
+    SHOWROOM_TAX_ID: "512-874-339",
+  },
+  {
+    SHOWROOM_NAME: "Zayed Motors",
+    SHOWROOM_CODE: "SHR-002",
+    SHOWROOM_ADDRESS: "Beverly Hills Gate, Sheikh Zayed, Giza",
+    SHOWROOM_TAX_ID: "447-201-885",
+  },
+  {
+    SHOWROOM_NAME: "Delta Auto Mansoura",
+    SHOWROOM_CODE: "SHR-003",
+    SHOWROOM_ADDRESS: "Gehan St, Mansoura, Dakahlia",
+    SHOWROOM_TAX_ID: "639-118-472",
+  },
+  {
+    SHOWROOM_NAME: "Alex Coast Motors",
+    SHOWROOM_CODE: "SHR-004",
+    SHOWROOM_ADDRESS: "Corniche Rd, Sidi Gaber, Alexandria",
+    SHOWROOM_TAX_ID: "725-330-914",
+  },
+];
+
 export const BANKS = [
   { BANK_NAME: "National Bank of Egypt", branches: ["Nasr City", "Heliopolis", "Downtown"] },
   { BANK_NAME: "CIB", branches: ["Maadi", "Zamalek", "New Cairo"] },

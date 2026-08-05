@@ -70,6 +70,12 @@ export interface PendingApplication {
   DEVIATION: string | null;
   FEEDBACK: string | null;
 
+  // Showroom the deal originates from.
+  SHOWROOM_NAME: string;
+  SHOWROOM_CODE: string;
+  SHOWROOM_ADDRESS: string | null;
+  SHOWROOM_TAX_ID: string | null;
+
   UploadedAt: string;
   /** APP_ID of the contract created from this row; null while still pending. */
   ConsumedByAppId: string | null;
@@ -172,6 +178,12 @@ export interface CarLoanRequest {
   COLOR: string;
   ENGINE_SIZE: string;
   YEAR_OF_PRODUCT: number;
+
+  // Showroom the deal originates from — read-only, sourced from system data
+  SHOWROOM_NAME: string;
+  SHOWROOM_CODE: string;
+  SHOWROOM_ADDRESS: string | null;
+  SHOWROOM_TAX_ID: string | null;
 
   // 4.4 Contract Stage (Sales) — agent-editable
   /** New / Used. Agent-selected, not a vehicle-master attribute. */

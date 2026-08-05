@@ -6,18 +6,26 @@ import type { PendingApplication } from "./types";
 
 type ColumnType = "text" | "number";
 
+/**
+ * Fields the system fills in itself, so they are never uploaded. Everything
+ * else on PendingApplication must have a column — see the coverage guard below.
+ */
+type SystemManagedField = "ASSIGNMENT_ID" | "UploadedAt" | "ConsumedByAppId";
+
+export type UploadableField = Exclude<keyof PendingApplication, SystemManagedField>;
+
 export interface UploadColumn {
   /** Canonical header written into the downloadable template. */
   header: string;
-  field: keyof PendingApplication;
+  field: UploadableField;
   type: ColumnType;
   required: boolean;
   /** Extra header spellings accepted on import (matched case-insensitively). */
-  aliases?: string[];
+  aliases?: readonly string[];
   example: string;
 }
 
-export const COLUMNS: UploadColumn[] = [
+export const COLUMNS = [
   { header: "DRV_SALES_MAN", field: "DRV_SALES_MAN", type: "text", required: true, aliases: ["Sales Agent", "Sales Man", "Assigned Sales Agent", "Sales"], example: "Mona Aziz" },
 
   { header: "CUSTOMER_NAME", field: "CUSTOMER_NAME", type: "text", required: true, aliases: ["Customer Name"], example: "Ahmed Samir Fathallah" },
@@ -60,7 +68,27 @@ export const COLUMNS: UploadColumn[] = [
   // reads it rather than writing it.
   { header: "DEVIATION", field: "DEVIATION", type: "text", required: false, aliases: ["Deviation", "Policy Deviation", "Credit Deviation"], example: "" },
   { header: "FEEDBACK", field: "FEEDBACK", type: "text", required: false, aliases: ["Credit Feedback", "Feedback", "Credit Comments"], example: "" },
-];
+
+  // Showroom the deal originates from.
+  { header: "SHOWROOM_NAME", field: "SHOWROOM_NAME", type: "text", required: true, aliases: ["Showroom", "Showroom Name", "Dealer", "Dealer Name"], example: "Auto Prime Nasr City" },
+  { header: "SHOWROOM_CODE", field: "SHOWROOM_CODE", type: "text", required: true, aliases: ["Showroom Code", "Dealer Code"], example: "SHR-001" },
+  { header: "SHOWROOM_ADDRESS", field: "SHOWROOM_ADDRESS", type: "text", required: false, aliases: ["Showroom Address", "Dealer Address", "Address"], example: "12 Abbas El Akkad St, Nasr City, Cairo" },
+  { header: "SHOWROOM_TAX_ID", field: "SHOWROOM_TAX_ID", type: "text", required: false, aliases: ["Showroom Tax ID", "Tax ID", "Tax Number", "Tax Registration Number"], example: "512-874-339" },
+] as const satisfies readonly UploadColumn[];
+
+// ---------------------------------------------------------------------------
+// Coverage guard: every uploadable field must have a template column.
+//
+// Without this, adding a field to PendingApplication would silently leave it
+// out of the downloadable template, and Admin would have no way to supply it.
+// If this line stops compiling, add the missing column to COLUMNS above — the
+// error names the field.
+// ---------------------------------------------------------------------------
+type ColumnField = (typeof COLUMNS)[number]["field"];
+type FieldsMissingFromTemplate = Exclude<UploadableField, ColumnField>;
+
+const _templateCoversEveryUploadableField: FieldsMissingFromTemplate extends never ? true : never = true;
+void _templateCoversEveryUploadableField;
 
 export const TEMPLATE_HEADERS = COLUMNS.map((c) => c.header);
 

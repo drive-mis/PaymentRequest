@@ -1,5 +1,5 @@
 import { MOCK_CUSTOMERS, MOCK_VEHICLES } from "./mockSource";
-import { BANKS } from "./choices";
+import { BANKS, SHOWROOMS } from "./choices";
 import type { PendingApplication } from "./types";
 
 // Stand-in for the spreadsheet Admin would normally upload, so a fresh browser
@@ -19,6 +19,7 @@ export function buildSeedAssignments(): PendingApplication[] {
   return MOCK_VEHICLES.slice(0, 8).map((vehicle, i) => {
     const customer = MOCK_CUSTOMERS[(i + 2) % MOCK_CUSTOMERS.length];
     const bank = BANKS[i % BANKS.length];
+    const showroom = SHOWROOMS[i % SHOWROOMS.length];
     const price = 1_600_000 + i * 250_000;
     const down = Math.round(price * 0.2);
     return {
@@ -56,6 +57,11 @@ export function buildSeedAssignments(): PendingApplication[] {
       ADMIN_FEES: 10_000 + i * 1_000,
       BANK_NAME: bank.BANK_NAME,
       BANK_BRANCH: bank.branches[0],
+
+      SHOWROOM_NAME: showroom.SHOWROOM_NAME,
+      SHOWROOM_CODE: showroom.SHOWROOM_CODE,
+      SHOWROOM_ADDRESS: showroom.SHOWROOM_ADDRESS,
+      SHOWROOM_TAX_ID: showroom.SHOWROOM_TAX_ID,
 
       // Credit-system output. Most deals come back clean; a couple carry a
       // deviation so the read-only credit panel has something to show.

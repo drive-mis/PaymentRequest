@@ -35,13 +35,15 @@ import { DEFAULT_USERS, roleForUserName } from "./personas";
 //   credit-system output instead of Operations-entered notes.
 // requests v5: contract signing method (ACH / Cheques) added; attachments now
 //   store an IndexedDB reference rather than a bare filename.
-const REQUESTS_KEY = "df_requests_v5";
+// requests v6: showroom name / code / address / tax id added.
+const REQUESTS_KEY = "df_requests_v6";
 const SESSION_KEY = "df_session_v1";
 const USERS_KEY = "df_users_v1";
 // assignments v2: financial / loan terms moved into the upload, so they are
 //   system-sourced and read-only like the customer and vehicle data.
 // assignments v3: monthly instalment, plus DEVIATION / FEEDBACK from credit.
-const ASSIGNMENTS_KEY = "df_assignments_v3";
+// assignments v4: showroom details added to the upload.
+const ASSIGNMENTS_KEY = "df_assignments_v4";
 
 export interface Session {
   name: string;
@@ -445,6 +447,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         COLOR: assignment.COLOR,
         ENGINE_SIZE: assignment.ENGINE_SIZE,
         YEAR_OF_PRODUCT: assignment.YEAR_OF_PRODUCT,
+
+        SHOWROOM_NAME: assignment.SHOWROOM_NAME,
+        SHOWROOM_CODE: assignment.SHOWROOM_CODE,
+        SHOWROOM_ADDRESS: assignment.SHOWROOM_ADDRESS,
+        SHOWROOM_TAX_ID: assignment.SHOWROOM_TAX_ID,
 
         "Car Type": null,
         "Contract Type": null,

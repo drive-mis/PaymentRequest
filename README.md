@@ -109,11 +109,16 @@ the other copy belongs to someone else.
 
 ## What is read-only, and what agents actually fill in
 
-Five blocks of data are **system-sourced and read-only for every role at every stage** —
-customer, vehicle, program, the **financial / loan terms** (price, down payment, loan amount,
-**monthly installment**, interest rate, tenor, admin fees, bank, bank branch), and the **credit
-assessment** (deviation and credit feedback). All five arrive with the uploaded application and
-are rendered as locked field boxes, never inputs.
+Six blocks of data are **system-sourced and read-only for every role at every stage** —
+customer, vehicle, **showroom** (name, code, address, tax ID), program, the **financial / loan
+terms** (price, down payment, loan amount, monthly installment, interest rate, tenor, admin
+fees, bank, bank branch), and the **credit assessment** (deviation and credit feedback). All six
+arrive with the uploaded application and are rendered as locked field boxes, never inputs.
+
+**Every one of those fields is in the download template** — and that's enforced by the compiler,
+not by discipline. `uploadSchema.ts` carries a coverage guard: if a field is added to
+`PendingApplication` without a matching template column, the build fails and names the missing
+field. Adding a read-only field can't silently leave Admin with no way to supply it.
 
 `PRICE`, `DOWN_PAYMENT`, `LOAN_AMOUNT`, `BANK_NAME` and `BANK_BRANCH` are **required columns**
 in the upload, because the payment-request gate checks them. Requiring them at import means a

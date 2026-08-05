@@ -55,6 +55,13 @@ export interface CreditLike {
   FEEDBACK: string | null;
 }
 
+export interface ShowroomLike {
+  SHOWROOM_NAME: string;
+  SHOWROOM_CODE: string;
+  SHOWROOM_ADDRESS: string | null;
+  SHOWROOM_TAX_ID: string | null;
+}
+
 const AWAITING = "awaiting selection";
 
 export function CustomerPanel({ data }: { data: CustomerLike | null }) {
@@ -115,6 +122,22 @@ export function FinancialPanel({ data }: { data: FinancialLike | null }) {
         { label: "Admin Fees", value: data ? formatCurrency(data.ADMIN_FEES) : null },
         { label: "Bank Name", value: data?.BANK_NAME },
         { label: "Bank Branch", value: data?.BANK_BRANCH },
+      ]}
+    />
+  );
+}
+
+/** The showroom the deal originates from. */
+export function ShowroomPanel({ data }: { data: ShowroomLike | null }) {
+  return (
+    <ReadOnlyPanel
+      title="Showroom Data"
+      sourceLabel={data ? "sourced from system · read-only" : AWAITING}
+      fields={[
+        { label: "Showroom Name", value: data?.SHOWROOM_NAME },
+        { label: "Showroom Code", value: data?.SHOWROOM_CODE },
+        { label: "Tax ID", value: data?.SHOWROOM_TAX_ID },
+        { label: "Address", value: data?.SHOWROOM_ADDRESS },
       ]}
     />
   );

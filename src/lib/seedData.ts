@@ -8,6 +8,7 @@ import {
   INSURANCE_TYPES,
   RECEIVAL_METHODS,
   SIGNING_METHODS,
+  SHOWROOMS,
 } from "./choices";
 import { computeDuplicateCheckKey, deriveSubStatuses } from "./rules";
 import type { AuditEntry, CarLoanRequest, Role, Status, StatusHistoryEntry } from "./types";
@@ -356,6 +357,7 @@ function toRecord(spec: SeedSpec): CarLoanRequest {
   // Loan terms now arrive with the uploaded application, so every record has
   // them from the moment it is created — including Drafts.
   const bank = BANKS[spec.idx % BANKS.length];
+  const showroom = SHOWROOMS[spec.idx % SHOWROOMS.length];
   const fallbackPrice = 1_500_000 + (spec.idx % 7) * 200_000;
   const loan = spec.loan ?? {
     price: fallbackPrice,
@@ -395,6 +397,11 @@ function toRecord(spec: SeedSpec): CarLoanRequest {
     COLOR: spec.vehicle.COLOR,
     ENGINE_SIZE: spec.vehicle.ENGINE_SIZE,
     YEAR_OF_PRODUCT: spec.vehicle.YEAR_OF_PRODUCT,
+
+    SHOWROOM_NAME: showroom.SHOWROOM_NAME,
+    SHOWROOM_CODE: showroom.SHOWROOM_CODE,
+    SHOWROOM_ADDRESS: showroom.SHOWROOM_ADDRESS,
+    SHOWROOM_TAX_ID: showroom.SHOWROOM_TAX_ID,
 
     // Cycle the dropdown values across the sample set so every option appears.
     "Car Type": CAR_TYPES[spec.idx % CAR_TYPES.length],
